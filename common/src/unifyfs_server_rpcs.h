@@ -31,6 +31,18 @@
 extern "C" {
 #endif
 
+typedef enum {
+    UNIFYFS_SERVER_RPC_INVALID = 0,
+    UNIFYFS_SERVER_RPC_ADD_EXTENTS,
+    UNIFYFS_SERVER_RPC_CHUNKREAD_REQ,
+    UNIFYFS_SERVER_RPC_CHUNKREAD_RESP,
+    UNIFYFS_SERVER_RPC_LAMINATE,
+    UNIFYFS_SERVER_RPC_METASET,
+    UNIFYFS_SERVER_RPC_PID,
+    UNIFYFS_SERVER_RPC_TRUNCATE,
+    UNIFYFS_SERVER_RPC_UNLINK
+} server_rpc_e;
+
 /* server_pid_rpc (server => server, n:1)
  *
  * notify readiness with pid to the master server (rank:0) */

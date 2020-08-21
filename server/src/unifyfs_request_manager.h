@@ -34,6 +34,14 @@
 #include "unifyfs_metadata_mdhim.h"
 
 typedef struct {
+    client_rpc_e req_type;
+    hg_handle_t handle;
+    void* input;
+    void* bulk_buf;
+    size_t bulk_sz;
+} client_rpc_req_t;
+
+typedef struct {
     readreq_status_e status;   /* aggregate request status */
     int req_ndx;               /* index in reqmgr read_reqs array */
     int app_id;                /* app id of requesting client process */
@@ -44,32 +52,37 @@ typedef struct {
     remote_chunk_reads_t* remote_reads; /* per-delegator remote reads array */
 } server_read_req_t;
 
-/* this structure is created by the main thread for each request
- * manager thread, contains shared data structures where main thread
- * issues read requests and request manager processes them, contains
- * condition variable and lock for coordination between threads */
+/* Request manager state structure - created by main thread for each request
+ * manager thread. Contains shared data structures for client-server and
+ * server-server requests and associated synchronization constructs */
 typedef struct reqmgr_thrd {
-    /* request manager thread */
+    /* request manager (RM) thread */
     pthread_t thrd;
 
     /* condition variable to synchronize request manager thread
-     * and main thread delivering work */
+     * and margo rpc handler ULT delivering work */
     pthread_cond_t thrd_cond;
 
     /* lock for shared data structures (variables below) */
     pthread_mutex_t thrd_lock;
 
-    /* flag indicating that request manager thread is waiting
-     * for work inside of critical region */
+    /* flag indicating request manager thread is waiting on thrd_cond CV */
     int has_waiting_delegator;
 
-    /* flag indicating main thread is in critical section waiting
-     * for request manager thread */
+    /* flag indicating a margo rpc handler ULT is waiting on thrd_cond CV */
     int has_waiting_dispatcher;
 
+    /* argobots mutex for synchronizing access to request state between
+     * margo rpc handler ULTs and request manager thread */
+    ABT_mutex reqs_sync;
+
+    /* array of server read requests */
     int num_read_reqs;
     int next_rdreq_ndx;
     server_read_req_t read_reqs[RM_MAX_ACTIVE_REQUESTS];
+
+    /* list of client rpc requests */
+    arraylist_t* client_reqs;
 
     /* buffer to build read request messages */
     char del_req_msg_buf[REQ_BUF_LEN];
@@ -135,6 +148,17 @@ int rm_handle_chunk_read_responses(reqmgr_thrd_t* thrd_ctrl,
  * @return 0 on success, errno otherwise
  */
 int rm_submit_read_request(server_read_req_t* req);
+
+/**
+ * @brief submit a client rpc request to the request manager thread.
+ *
+ * @param client    application client context
+ * @param req       pointer to client rpc request struct
+ *
+ * @return UNIFYFS_SUCCESS, or error code
+ */
+int rm_submit_client_rpc_request(unifyfs_fops_ctx_t* ctx,
+                                 client_rpc_req_t* req);
 
 /* MARGO SERVER-SERVER RPC INVOCATION FUNCTIONS */
 

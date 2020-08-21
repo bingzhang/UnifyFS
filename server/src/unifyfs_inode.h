@@ -32,6 +32,7 @@ struct unifyfs_inode {
     int laminated;                /* is this file laminated? */
     unifyfs_file_attr_t attr;     /* file attributes */
     pthread_rwlock_t rwlock;      /* rwlock for accessing this structure */
+    ABT_mutex abt_sync;
 
     struct extent_tree* extents;  /* extent information */
 };

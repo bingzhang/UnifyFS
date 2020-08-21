@@ -47,15 +47,20 @@ shm_context* unifyfs_shm_alloc(const char* name, size_t size)
 
     /* set size of shared memory region */
 #ifdef HAVE_POSIX_FALLOCATE
-    ret = posix_fallocate(fd, 0, size);
-    if (ret != 0) {
-        /* failed to set size shared memory */
-        errno = ret;
-        LOGERR("posix_fallocate failed for %s (%s)",
-               name, strerror(errno));
-        close(fd);
-        return NULL;
-    }
+    do { /* this loop handles syscall interruption for large allocations */
+        int try_count = 0;
+        ret = posix_fallocate(fd, 0, size);
+        if (ret != 0) {
+            /* failed to set size shared memory */
+            try_count++;
+            if ((ret != EINTR) || (try_count >= 5)) {
+                LOGERR("posix_fallocate failed for %s (%s)",
+                    name, strerror(ret));
+                close(fd);
+                return NULL;
+            }
+        }
+    } while (ret != 0);
 #else
     errno = 0;
     ret = ftruncate(fd, size);

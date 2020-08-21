@@ -31,6 +31,22 @@
 extern "C" {
 #endif
 
+typedef enum {
+    UNIFYFS_CLIENT_RPC_INVALID = 0,
+    UNIFYFS_CLIENT_RPC_ATTACH,
+    UNIFYFS_CLIENT_RPC_FILESIZE,
+    UNIFYFS_CLIENT_RPC_LAMINATE,
+    UNIFYFS_CLIENT_RPC_METAGET,
+    UNIFYFS_CLIENT_RPC_METASET,
+    UNIFYFS_CLIENT_RPC_MOUNT,
+    UNIFYFS_CLIENT_RPC_MULTIREAD,
+    UNIFYFS_CLIENT_RPC_READ,
+    UNIFYFS_CLIENT_RPC_SYNC,
+    UNIFYFS_CLIENT_RPC_TRUNCATE,
+    UNIFYFS_CLIENT_RPC_UNLINK,
+    UNIFYFS_CLIENT_RPC_UNMOUNT
+} client_rpc_e;
+
 /* unifyfs_attach_rpc (client => server)
  *
  * initialize server access to client's shared memory and file state */
@@ -93,16 +109,17 @@ MERCURY_GEN_PROC(unifyfs_metaget_out_t,
                  ((unifyfs_file_attr_t)(attr)))
 DECLARE_MARGO_RPC_HANDLER(unifyfs_metaget_rpc)
 
-/* unifyfs_sync_rpc (client => server)
+/* unifyfs_fsync_rpc (client => server)
  *
  * given a client identified by (app_id, client_id) as input, read the write
  * extents for one or more of the client's files from the shared memory index
  * and update the global metadata for the file(s) */
-MERCURY_GEN_PROC(unifyfs_sync_in_t,
+MERCURY_GEN_PROC(unifyfs_fsync_in_t,
                  ((int32_t)(app_id))
-                 ((int32_t)(client_id)))
-MERCURY_GEN_PROC(unifyfs_sync_out_t, ((int32_t)(ret)))
-DECLARE_MARGO_RPC_HANDLER(unifyfs_sync_rpc)
+                 ((int32_t)(client_id))
+                 ((int32_t)(gfid)))
+MERCURY_GEN_PROC(unifyfs_fsync_out_t, ((int32_t)(ret)))
+DECLARE_MARGO_RPC_HANDLER(unifyfs_fsync_rpc)
 
 /* unifyfs_filesize_rpc (client => server)
  *

@@ -57,11 +57,7 @@
 #define RM_MAX_ACTIVE_REQUESTS 64    /* number of concurrent read requests */
 
 // Server - Service Manager
-#define LARGE_BURSTY_DATA (512 * MIB)
-#define MAX_BURSTY_INTERVAL 10000 /* unit: us */
-#define MIN_SLEEP_INTERVAL 100    /* unit: us */
-#define SLEEP_INTERVAL 500        /* unit: us */
-#define SLEEP_SLICE_PER_UNIT 50   /* unit: us */
+#define MIN_SLEEP_INTERVAL 50  /* unit: us */
 
 // Server - General
 #define MAX_BULK_TX_SIZE (8 * MIB) /* bulk transfer size (between servers) */

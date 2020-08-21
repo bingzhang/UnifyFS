@@ -232,7 +232,7 @@ int unifyfs_sync(int target_fid)
             }
 
             /* tell the server to grab our new extents */
-            ret = invoke_client_sync_rpc();
+            ret = invoke_client_sync_rpc(meta->gfid);
             if (ret != UNIFYFS_SUCCESS) {
                 /* something went wrong when trying to flush extents */
                 LOGERR("failed to flush write index to server for gfid=%d",

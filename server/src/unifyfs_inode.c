@@ -34,6 +34,7 @@ struct unifyfs_inode* unifyfs_inode_alloc(int gfid, unifyfs_file_attr_t* attr)
         ino->attr = *attr;
         ino->attr.filename = strdup(attr->filename);
         pthread_rwlock_init(&ino->rwlock, NULL);
+        ABT_mutex_create(&(ino->abt_sync));
     }
 
     return ino;
@@ -264,52 +265,50 @@ int unifyfs_inode_add_extents(int gfid, int num_extents,
             goto out_unlock_tree;
         }
 
-        unifyfs_inode_wrlock(ino);
-        {
-            if (ino->laminated) {
-                LOGERR("trying to add extents to a laminated file (gfid=%d)",
-                       gfid);
-                ret = EINVAL;
-                goto out_unlock_inode;
-            }
-
-            tree = inode_get_extent_tree(ino);
-            if (!tree) { /* failed to create one */
-                ret = ENOMEM;
-                goto out_unlock_inode;
-            }
-
-            for (i = 0; i < num_extents; i++) {
-                struct extent_tree_node* current = &nodes[i];
-
-                /* the output becomes too noisy with this:
-                 * LOGDBG("new extent[%4d]: (%lu, %lu)",
-                 *        i, current->start, current->end);
-                 */
-
-                ret = extent_tree_add(tree, current->start, current->end,
-                                      current->svr_rank, current->app_id,
-                                      current->cli_id, current->pos);
-                if (ret) {
-                    LOGERR("failed to add extents");
-                    goto out_unlock_inode;
-                }
-            }
-
-            /* if the extent tree max offset is greater than the size we
-             * we currently have in the inode attributes, then update the
-             * inode size */
-            unsigned long extent_sz = extent_tree_max_offset(ino->extents) + 1;
-            if ((uint64_t)extent_sz > ino->attr.size) {
-                ino->attr.size = extent_sz;
-            }
-
-            LOGDBG("added %d extents to inode (gfid=%d, filesize=%" PRIu64 ")",
-                   num_extents, gfid, ino->attr.size);
-
+        if (ino->laminated) {
+            LOGERR("trying to add extents to a laminated file (gfid=%d)",
+                   gfid);
+            ret = EINVAL;
+            goto out_unlock_tree;
         }
-out_unlock_inode:
-        unifyfs_inode_unlock(ino);
+
+        tree = inode_get_extent_tree(ino);
+        if (!tree) { /* failed to create one */
+            ret = ENOMEM;
+            goto out_unlock_tree;
+        }
+
+        for (i = 0; i < num_extents; i++) {
+            struct extent_tree_node* current = &nodes[i];
+
+            /* the output becomes too noisy with this:
+             * LOGDBG("new extent[%4d]: (%lu, %lu)",
+             *        i, current->start, current->end);
+             */
+
+            ABT_mutex_lock(ino->abt_sync);
+            ret = extent_tree_add(tree, current->start, current->end,
+                                  current->svr_rank, current->app_id,
+                                  current->cli_id, current->pos);
+            ABT_mutex_unlock(ino->abt_sync);
+            if (ret) {
+                LOGERR("failed to add extents");
+                goto out_unlock_tree;
+            }
+        }
+
+        /* if the extent tree max offset is greater than the size we
+         * we currently have in the inode attributes, then update the
+         * inode size */
+        unsigned long extent_sz = extent_tree_max_offset(ino->extents) + 1;
+        if ((uint64_t)extent_sz > ino->attr.size) {
+            unifyfs_inode_wrlock(ino);
+            ino->attr.size = extent_sz;
+            unifyfs_inode_unlock(ino);
+        }
+
+        LOGINFO("added %d extents to inode (gfid=%d, filesize=%" PRIu64 ")",
+               num_extents, gfid, ino->attr.size);
     }
 out_unlock_tree:
     unifyfs_inode_tree_unlock(global_inode_tree);

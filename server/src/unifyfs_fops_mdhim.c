@@ -178,7 +178,7 @@ static int mdhim_metaset(unifyfs_fops_ctx_t* ctx,
     return unifyfs_set_file_attribute(create, create, attr);
 }
 
-static int mdhim_sync(unifyfs_fops_ctx_t* ctx)
+static int mdhim_fsync(unifyfs_fops_ctx_t* ctx, int gfid)
 {
     size_t i;
 
@@ -260,7 +260,7 @@ static int mdhim_sync(unifyfs_fops_ctx_t* ctx)
     for (i = 0; i < extent_num_entries; i++) {
         /* get file offset, length, and log offset for this entry */
         unifyfs_index_t* meta = &meta_payload[i];
-        int gfid      = meta->gfid;
+        assert(gfid == meta->gfid);
         size_t offset = meta->file_pos;
         size_t length = meta->length;
         size_t logpos = meta->log_pos;
@@ -303,14 +303,6 @@ mdhim_sync_exit:
     }
 
     return ret;
-}
-
-/*
- * currently, we publish all key-value pairs (regardless of the @gfid).
- */
-static int mdhim_fsync(unifyfs_fops_ctx_t* ctx, int gfid)
-{
-    return mdhim_sync(ctx);
 }
 
 static int mdhim_filesize(unifyfs_fops_ctx_t* ctx, int gfid, size_t* outsize)
@@ -1192,7 +1184,6 @@ static struct unifyfs_fops _fops_mdhim = {
     .init = mdhim_init,
     .metaget = mdhim_metaget,
     .metaset = mdhim_metaset,
-    .sync = mdhim_sync,
     .fsync = mdhim_fsync,
     .filesize = mdhim_filesize,
     .truncate = mdhim_truncate,

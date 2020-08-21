@@ -402,7 +402,7 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    LOGDBG("finished service initialization");
+    LOGINFO("server[%d] - finished initialization", glb_pmi_rank);
 
     while (1) {
         sleep(1);

@@ -42,6 +42,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 // common headers
 #include "arraylist.h"
@@ -51,9 +52,9 @@
 #include "unifyfs_meta.h"
 #include "unifyfs_shm.h"
 #include "unifyfs_fops.h"
+#include "unifyfs_client_rpcs.h"
+#include "unifyfs_server_rpcs.h"
 
-#include <margo.h>
-#include <pthread.h>
 
 /* Some global variables/structures used throughout the server code */
 

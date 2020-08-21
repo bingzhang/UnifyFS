@@ -27,6 +27,9 @@
 ServerRpcContext_t* unifyfsd_rpc_context;
 bool margo_use_tcp = true;
 bool margo_lazy_connect; // = false
+int  margo_client_server_pool_sz = 4;
+int  margo_server_server_pool_sz = 4;
+int  margo_use_progress_thread = 1;
 
 #if defined(NA_HAS_SM)
 static const char* PROTOCOL_MARGO_SHM   = "na+sm://";
@@ -61,7 +64,8 @@ static margo_instance_id setup_remote_target(void)
         margo_protocol = PROTOCOL_MARGO_RMA;
     }
 
-    mid = margo_init(margo_protocol, MARGO_SERVER_MODE, 1, 4);
+    mid = margo_init(margo_protocol, MARGO_SERVER_MODE,
+                     margo_use_progress_thread, margo_server_server_pool_sz);
     if (mid == MARGO_INSTANCE_NULL) {
         LOGERR("margo_init(%s)", margo_protocol);
         return mid;
@@ -151,7 +155,8 @@ static margo_instance_id setup_local_target(void)
     hg_size_t self_string_sz = sizeof(self_string);
     margo_instance_id mid;
 
-    mid = margo_init(PROTOCOL_MARGO_SHM, MARGO_SERVER_MODE, 1, -1);
+    mid = margo_init(PROTOCOL_MARGO_SHM, MARGO_SERVER_MODE,
+                     margo_use_progress_thread, margo_client_server_pool_sz);
     if (mid == MARGO_INSTANCE_NULL) {
         LOGERR("margo_init(%s)", PROTOCOL_MARGO_SHM);
         return mid;
@@ -205,9 +210,9 @@ static void register_client_server_rpcs(margo_instance_id mid)
                    unifyfs_metaset_in_t, unifyfs_metaset_out_t,
                    unifyfs_metaset_rpc);
 
-    MARGO_REGISTER(mid, "unifyfs_sync_rpc",
-                   unifyfs_sync_in_t, unifyfs_sync_out_t,
-                   unifyfs_sync_rpc);
+    MARGO_REGISTER(mid, "unifyfs_fsync_rpc",
+                   unifyfs_fsync_in_t, unifyfs_fsync_out_t,
+                   unifyfs_fsync_rpc);
 
     MARGO_REGISTER(mid, "unifyfs_filesize_rpc",
                    unifyfs_filesize_in_t, unifyfs_filesize_out_t,

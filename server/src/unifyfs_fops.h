@@ -26,7 +26,6 @@ struct _unifyfs_fops_ctx {
     int app_id;
     int client_id;
 };
-
 typedef struct _unifyfs_fops_ctx unifyfs_fops_ctx_t;
 
 typedef int (*unifyfs_fops_init_t)(unifyfs_cfg_t* cfg);
@@ -37,8 +36,6 @@ typedef int (*unifyfs_fops_metaget_t)(unifyfs_fops_ctx_t* ctx,
 typedef int (*unifyfs_fops_metaset_t)(unifyfs_fops_ctx_t* ctx,
                                       int gfid, int create,
                                       unifyfs_file_attr_t* attr);
-
-typedef int (*unifyfs_fops_sync_t)(unifyfs_fops_ctx_t* ctx);
 
 typedef int (*unifyfs_fops_fsync_t)(unifyfs_fops_ctx_t* ctx, int gfid);
 
@@ -63,7 +60,6 @@ struct unifyfs_fops {
     unifyfs_fops_init_t init;
     unifyfs_fops_metaget_t metaget;
     unifyfs_fops_metaset_t metaset;
-    unifyfs_fops_sync_t sync;
     unifyfs_fops_fsync_t fsync;
     unifyfs_fops_filesize_t filesize;
     unifyfs_fops_truncate_t truncate;
@@ -120,15 +116,6 @@ static inline int unifyfs_fops_metaset(unifyfs_fops_ctx_t* ctx,
     }
 
     return global_fops_tab->metaset(ctx, gfid, create, attr);
-}
-
-static inline int unifyfs_fops_sync(unifyfs_fops_ctx_t* ctx)
-{
-    if (!global_fops_tab->sync) {
-        return ENOSYS;
-    }
-
-    return global_fops_tab->sync(ctx);
 }
 
 static inline int unifyfs_fops_fsync(unifyfs_fops_ctx_t* ctx, int gfid)

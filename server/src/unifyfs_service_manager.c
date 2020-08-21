@@ -27,9 +27,6 @@
  * Please read https://github.com/llnl/burstfs/LICENSE for full license text.
  */
 
-#include <aio.h>
-#include <time.h>
-
 #include "unifyfs_global.h"
 #include "unifyfs_request_manager.h"
 #include "unifyfs_service_manager.h"
@@ -41,8 +38,9 @@ typedef struct {
     /* the SM thread */
     pthread_t thrd;
 
-    /* state synchronization mutex */
-    pthread_mutex_t sync;
+    /* argobots mutex for synchronizing access to request state between
+     * margo rpc handler ULTs and SM thread */
+    ABT_mutex sync;
 
     /* thread status */
     int initialized;
@@ -54,8 +52,6 @@ typedef struct {
     /* list of chunk read requests from remote delegators */
     arraylist_t* chunk_reads;
 
-    /* tracks running total of bytes in current read burst */
-    size_t burst_data_sz;
 } svcmgr_state_t;
 svcmgr_state_t* sm; // = NULL
 
@@ -63,14 +59,14 @@ svcmgr_state_t* sm; // = NULL
 #define SM_LOCK() \
 do { \
     LOGDBG("locking service manager state"); \
-    pthread_mutex_lock(&(sm->sync)); \
+    ABT_mutex_lock(sm->sync); \
 } while (0)
 
 /* unlock macro for debugging SM locking */
 #define SM_UNLOCK() \
 do { \
     LOGDBG("unlocking service manager state"); \
-    pthread_mutex_unlock(&(sm->sync)); \
+    ABT_mutex_unlock(sm->sync); \
 } while (0)
 
 /* Decode and issue chunk-reads received from request manager.
@@ -205,9 +201,6 @@ int sm_issue_chunk_reads(int src_rank,
 
         /* update to point to next slot in read reply buffer */
         buf_cursor += nbytes;
-
-        /* update accounting for burst size */
-        sm->burst_data_sz += nbytes;
     }
 
     if (src_rank != glb_pmi_rank) {
@@ -253,9 +246,6 @@ int svcmgr_init(void)
         return ENOMEM;
     }
 
-    /* tracks how much data we process in each burst */
-    sm->burst_data_sz = 0;
-
     /* allocate a list to track chunk read requests */
     sm->chunk_reads = arraylist_create();
     if (sm->chunk_reads == NULL) {
@@ -264,17 +254,12 @@ int svcmgr_init(void)
         return ENOMEM;
     }
 
-    int rc = pthread_mutex_init(&(sm->sync), NULL);
-    if (0 != rc) {
-        LOGERR("failed to initialize service manager mutex!");
-        svcmgr_fini();
-        return (int)UNIFYFS_ERROR_THRDINIT;
-    }
+    ABT_mutex_create(&(sm->sync));
 
     sm->initialized = 1;
 
-    rc = pthread_create(&(sm->thrd), NULL,
-                        sm_service_reads, (void*)sm);
+    int rc = pthread_create(&(sm->thrd), NULL,
+                            sm_service_reads, (void*)sm);
     if (rc != 0) {
         LOGERR("failed to create service manager thread");
         svcmgr_fini();
@@ -301,7 +286,6 @@ int svcmgr_fini(void)
 
         if (sm->initialized) {
             SM_UNLOCK();
-            pthread_mutex_destroy(&(sm->sync));
         }
 
         /* free the service manager struct allocated during init */
@@ -321,7 +305,7 @@ static int send_chunk_read_responses(void)
     arraylist_t* chunk_reads = NULL;
 
     /* lock to access global service manager object */
-    pthread_mutex_lock(&(sm->sync));
+    ABT_mutex_lock(sm->sync);
 
     /* if we have any chunk reads, take pointer to the list
      * of chunk read requests and replace it with a newly allocated
@@ -336,7 +320,7 @@ static int send_chunk_read_responses(void)
     }
 
     /* release lock on service manager object */
-    pthread_mutex_unlock(&(sm->sync));
+    ABT_mutex_unlock(sm->sync);
 
     /* iterate over each chunk read request */
     for (int i = 0; i < num_chunk_reads; i++) {
@@ -366,7 +350,7 @@ void* sm_service_reads(void* arg)
 {
     int rc;
 
-    LOGDBG("I am service manager thread!");
+    LOGDBG("I am the service manager thread!");
     assert(sm == (svcmgr_state_t*)arg);
 
     /* handle chunk reads until signaled to exit */
@@ -376,39 +360,12 @@ void* sm_service_reads(void* arg)
             LOGERR("failed to send chunk read responses");
         }
 
-        pthread_mutex_lock(&(sm->sync));
-
         if (sm->time_to_exit) {
-            pthread_mutex_unlock(&(sm->sync));
             break;
         }
 
-#ifdef BURSTY_WAIT // REVISIT WHETHER BURSTY WAIT STILL DESIRABLE
-        /* determine how long to wait next time based on
-         * how much data we just processed in this burst */
-        size_t bursty_interval;
-        if (sm->burst_data_sz >= LARGE_BURSTY_DATA) {
-            /* for large bursts above a threshold,
-             * wait for a fixed amount of time */
-            bursty_interval = MAX_BURSTY_INTERVAL;
-        } else {
-            /* for smaller bursts, set delay proportionally
-             * to burst size we just processed */
-            bursty_interval =
-                (SLEEP_SLICE_PER_UNIT * sm->burst_data_sz) / MIB;
-        }
-        if (bursty_interval > MIN_SLEEP_INTERVAL) {
-            usleep(SLEEP_INTERVAL); /* wait an interval */
-        }
-#else
         /* wait an interval */
         usleep(MIN_SLEEP_INTERVAL);
-#endif // REVISIT WHETHER BURSTY WAIT STILL DESIRABLE
-
-        /* reset our burst size counter */
-        sm->burst_data_sz = 0;
-
-        pthread_mutex_unlock(&(sm->sync));
     }
 
     LOGDBG("service manager thread exiting");

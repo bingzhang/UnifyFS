@@ -49,7 +49,7 @@ static void register_client_rpcs(client_rpc_context_t* ctx)
     CLIENT_REGISTER_RPC(truncate);
     CLIENT_REGISTER_RPC(unlink);
     CLIENT_REGISTER_RPC(laminate);
-    CLIENT_REGISTER_RPC(sync);
+    CLIENT_REGISTER_RPC(fsync);
     CLIENT_REGISTER_RPC(read);
     CLIENT_REGISTER_RPC(mread);
 
@@ -628,7 +628,7 @@ int invoke_client_laminate_rpc(int gfid)
 }
 
 /* invokes the client sync rpc function */
-int invoke_client_sync_rpc(void)
+int invoke_client_sync_rpc(int gfid)
 {
     /* check that we have initialized margo */
     if (NULL == client_rpc_context) {
@@ -636,12 +636,13 @@ int invoke_client_sync_rpc(void)
     }
 
     /* get handle to rpc function */
-    hg_handle_t handle = create_handle(client_rpc_context->rpcs.sync_id);
+    hg_handle_t handle = create_handle(client_rpc_context->rpcs.fsync_id);
 
     /* fill in input struct */
-    unifyfs_sync_in_t in;
+    unifyfs_fsync_in_t in;
     in.app_id    = (int32_t) unifyfs_app_id;
     in.client_id = (int32_t) unifyfs_client_id;
+    in.gfid      = (int32_t) gfid;
 
     /* call rpc function */
     LOGDBG("invoking the sync rpc function in client");
@@ -654,7 +655,7 @@ int invoke_client_sync_rpc(void)
 
     /* decode response */
     int ret;
-    unifyfs_sync_out_t out;
+    unifyfs_fsync_out_t out;
     hret = margo_get_output(handle, &out);
     if (hret == HG_SUCCESS) {
         LOGDBG("Got response ret=%" PRIi32, out.ret);

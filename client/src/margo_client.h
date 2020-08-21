@@ -33,7 +33,7 @@ typedef struct ClientRpcIds {
     hg_id_t truncate_id;
     hg_id_t unlink_id;
     hg_id_t laminate_id;
-    hg_id_t sync_id;
+    hg_id_t fsync_id;
     hg_id_t read_id;
     hg_id_t mread_id;
 } client_rpcs_t;
@@ -71,7 +71,7 @@ int invoke_client_unlink_rpc(int gfid);
 
 int invoke_client_laminate_rpc(int gfid);
 
-int invoke_client_sync_rpc(void);
+int invoke_client_sync_rpc(int gfid);
 
 int invoke_client_read_rpc(int gfid, size_t offset, size_t length);
 

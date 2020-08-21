@@ -294,15 +294,15 @@ static void unifyfs_metaset_rpc(hg_handle_t handle)
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_metaset_rpc)
 
-/* given a client identified by (app_id, client_id) as input, read the write
- * extents for one or more of the client's files from the shared memory index
- * and update the global metadata for the file(s) */
-static void unifyfs_sync_rpc(hg_handle_t handle)
+/* given a global file id and client identified by (app_id, client_id) as
+ * input, read the write extents for the file from the shared memory index
+ * and update its global metadata */
+static void unifyfs_fsync_rpc(hg_handle_t handle)
 {
-    int ret = (int) UNIFYFS_SUCCESS;
+    int ret = UNIFYFS_SUCCESS;
 
     /* get input params */
-    unifyfs_sync_in_t in;
+    unifyfs_fsync_in_t in;
     hg_return_t hret = margo_get_input(handle, &in);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_get_input() failed");
@@ -310,17 +310,18 @@ static void unifyfs_sync_rpc(hg_handle_t handle)
     } else {
         /* given global file id, read index metadata from client and
          * insert into global index key/value store */
+        int gfid = in.gfid;
         unifyfs_fops_ctx_t ctx = {
             .app_id = in.app_id,
             .client_id = in.client_id,
         };
-        ret = unifyfs_fops_sync(&ctx);
+        ret = unifyfs_fops_fsync(&ctx, gfid);
 
         margo_free_input(handle, &in);
     }
 
     /* build our output values */
-    unifyfs_sync_out_t out;
+    unifyfs_fsync_out_t out;
     out.ret = ret;
 
     /* return to caller */
@@ -332,44 +333,66 @@ static void unifyfs_sync_rpc(hg_handle_t handle)
     /* free margo resources */
     margo_destroy(handle);
 }
-DEFINE_MARGO_RPC_HANDLER(unifyfs_sync_rpc)
+DEFINE_MARGO_RPC_HANDLER(unifyfs_fsync_rpc)
 
 /* given an app_id, client_id, global file id,
  * return current file size */
 static void unifyfs_filesize_rpc(hg_handle_t handle)
 {
     int ret = UNIFYFS_SUCCESS;
-    size_t filesize = 0;
+    hg_return_t hret;
 
     /* get input params */
-    unifyfs_filesize_in_t in;
-    hg_return_t hret = margo_get_input(handle, &in);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_get_input() failed");
-        ret = UNIFYFS_ERROR_MARGO;
+    unifyfs_filesize_in_t* in = malloc(sizeof(*in));
+    if (NULL == in) {
+        ret = ENOMEM;
     } else {
-        unifyfs_fops_ctx_t ctx = {
-            .app_id = in.app_id,
-            .client_id = in.client_id,
-        };
-        ret = unifyfs_fops_filesize(&ctx, in.gfid, &filesize);
+        hret = margo_get_input(handle, in);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_get_input() failed");
+            ret = UNIFYFS_ERROR_MARGO;
+        } else {
+            client_rpc_req_t* req = malloc(sizeof(client_rpc_req_t));
+            if (NULL == req) {
+                ret = ENOMEM;
+            } else {
+                unifyfs_fops_ctx_t ctx = {
+                    .app_id = in->app_id,
+                    .client_id = in->client_id,
+                };
+                req->req_type = UNIFYFS_CLIENT_RPC_FILESIZE;
+                req->handle = handle;
+                req->input = (void*) in;
+                req->bulk_buf = NULL;
+                req->bulk_sz = 0;
+                ret = rm_submit_client_rpc_request(&ctx, req);
+                //ret = unifyfs_fops_filesize(&ctx, in.gfid, &filesize);
+            }
 
-        margo_free_input(handle, &in);
+            if (ret != UNIFYFS_SUCCESS) {
+                margo_free_input(handle, in);
+            }
+        }
     }
 
-    /* build our output values */
-    unifyfs_filesize_out_t out;
-    out.ret      = (int32_t)   ret;
-    out.filesize = (hg_size_t) filesize;
+    /* if we hit an error during request submission, respond with the error */
+    if (ret != UNIFYFS_SUCCESS) {
+        if (NULL != in) {
+            free(in);
+        }
 
-    /* return to caller */
-    hret = margo_respond(handle, &out);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_respond() failed");
+        /* return to caller */
+        unifyfs_filesize_out_t out;
+        out.ret      = (int32_t)   ret;
+        out.filesize = (hg_size_t) 0;
+        hret = margo_respond(handle, &out);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_respond() failed");
+        }
+
+        /* free margo resources */
+        margo_destroy(handle);
     }
-
-    /* free margo resources */
-    margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_filesize_rpc)
 

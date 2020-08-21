@@ -49,7 +49,7 @@ static int rpc_metaset(unifyfs_fops_ctx_t* ctx,
 /*
  * sync rpc from client contains extents for a single gfid (file).
  */
-static int rpc_sync(unifyfs_fops_ctx_t* ctx)
+static int rpc_fsync(unifyfs_fops_ctx_t* ctx, int gfid)
 {
     size_t i;
 
@@ -103,7 +103,7 @@ static int rpc_sync(unifyfs_fops_ctx_t* ctx)
     }
 
     /* the sync rpc now contains extents from a single file/gfid */
-    int gfid = meta_payload[0].gfid;
+    assert(gfid == meta_payload[0].gfid);
 
     for (i = 0; i < extent_num_entries; i++) {
         struct extent_tree_node* tmp = &extents[i];
@@ -130,11 +130,6 @@ static int rpc_sync(unifyfs_fops_ctx_t* ctx)
     }
 
     return ret;
-}
-
-static int rpc_fsync(unifyfs_fops_ctx_t* ctx, int gfid)
-{
-    return rpc_sync(ctx);
 }
 
 static int rpc_filesize(unifyfs_fops_ctx_t* ctx, int gfid, size_t* filesize)
@@ -449,7 +444,6 @@ static struct unifyfs_fops _fops_rpc = {
     .init = rpc_init,
     .metaget = rpc_metaget,
     .metaset = rpc_metaset,
-    .sync = rpc_sync,
     .fsync = rpc_fsync,
     .filesize = rpc_filesize,
     .truncate = rpc_truncate,

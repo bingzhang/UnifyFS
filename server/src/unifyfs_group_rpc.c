@@ -95,7 +95,7 @@ static int wait_for_request(unifyfs_coll_request_t* creq)
 static int extbcast_request_forward(const unifyfs_tree_t* broadcast_tree,
                                     extbcast_request_in_t* in)
 {
-    LOGDBG("MARGOTREE: extent bcast forward");
+    LOGINFO("MARGOTREE: extent bcast forward");
 
     int rc;
     int ret = UNIFYFS_SUCCESS;
@@ -130,6 +130,7 @@ static int extbcast_request_forward(const unifyfs_tree_t* broadcast_tree,
         req = requests + i;
         rc = wait_for_request(req);
         if (rc == UNIFYFS_SUCCESS) {
+            LOGINFO("MARGOTREE: extent bcast forward - got child[%d] response", i);
             /* get the output of the rpc */
             extbcast_request_out_t out;
             hg_return_t hret = margo_get_output(req->handle, &out);
@@ -157,10 +158,9 @@ static int extbcast_request_forward(const unifyfs_tree_t* broadcast_tree,
  * request to any children */
 static void extbcast_request_rpc(hg_handle_t handle)
 {
-    LOGDBG("MARGOTREE: extent bcast rpc handler");
+    LOGINFO("MARGOTREE: extent bcast rpc handler");
 
     /* assume we'll succeed */
-
     int32_t ret = UNIFYFS_SUCCESS;
 
     /* get instance id */
@@ -186,7 +186,6 @@ static void extbcast_request_rpc(hg_handle_t handle)
         /* get client address */
         const struct hg_info* info = margo_get_info(handle);
         hg_addr_t client_address = info->addr;
-
 
         /* expose local bulk buffer */
         hg_size_t buf_size = num_extents * sizeof(struct extent_tree_node);
@@ -242,7 +241,7 @@ static void extbcast_request_rpc(hg_handle_t handle)
                 LOGERR("margo_wait() for bulk transfer failed");
                 ret = UNIFYFS_ERROR_MARGO;
             } else {
-                LOGDBG("received %d extents (%zu bytes) from %d",
+                LOGINFO("received %d extents (%zu bytes) from %d",
                        num_extents, (size_t)buf_size, (int)in.root);
 
                 if (NULL != requests) {
@@ -258,6 +257,8 @@ static void extbcast_request_rpc(hg_handle_t handle)
                     LOGERR("add of remote extents failed (ret=%d)", ret);
                     // what do we do now?
                 }
+                LOGINFO("added %d extents (%zu bytes) from %d",
+                       num_extents, (size_t)buf_size, (int)in.root);
 
                 if (NULL != requests) {
                     /* wait for the requests to finish */
@@ -275,7 +276,7 @@ static void extbcast_request_rpc(hg_handle_t handle)
                             } else {
                                 /* set return value */
                                 int child_ret = (int) out.ret;
-                                LOGDBG("MARGOTREE: extbcast child[%d]"
+                                LOGINFO("MARGOTREE: extbcast child[%d] "
                                        "response: %d", i, child_ret);
                                 if (child_ret != UNIFYFS_SUCCESS) {
                                     ret = child_ret;
@@ -290,6 +291,8 @@ static void extbcast_request_rpc(hg_handle_t handle)
                     free(requests);
                 }
             }
+            /* free bulk data handle */
+            margo_bulk_free(extent_data);
 
             /* release communication tree resources */
             unifyfs_tree_free(&bcast_tree);
@@ -306,6 +309,8 @@ static void extbcast_request_rpc(hg_handle_t handle)
     if (hret != HG_SUCCESS) {
         LOGERR("margo_respond() failed");
     }
+
+    LOGINFO("MARGOTREE: extent bcast rpc handler - responded");
 
     /* free margo resources */
     margo_destroy(handle);
@@ -331,7 +336,7 @@ int unifyfs_invoke_broadcast_extents_rpc(int gfid, unsigned int len,
     hg_size_t num_extents = len;
     hg_size_t buf_size = num_extents * sizeof(*extents);
 
-    LOGDBG("broadcasting %u extents (%zu bytes) for gfid=%d)",
+    LOGINFO("broadcasting %u extents (%zu bytes) for gfid=%d)",
            len, (size_t)buf_size, gfid);
 
     /* create bulk data structure containing the extents

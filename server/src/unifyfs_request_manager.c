@@ -1209,7 +1209,6 @@ static int process_unlink_rpc(reqmgr_thrd_t* reqmgr,
                               client_rpc_req_t* req)
 {
     int ret = UNIFYFS_SUCCESS;
-    size_t filesize = 0;
 
     unifyfs_unlink_in_t* in = req->input;
     assert(in != NULL);

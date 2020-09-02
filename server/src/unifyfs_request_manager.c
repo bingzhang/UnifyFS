@@ -1105,7 +1105,7 @@ static int process_metaget_rpc(reqmgr_thrd_t* reqmgr,
     memset(&fattr, 0, sizeof(fattr));
     ret = unifyfs_fops_metaget(&ctx, gfid, &fattr);
     if (ret != UNIFYFS_SUCCESS) {
-        LOGERR("unifyfs_fops_metaset() failed");
+        LOGERR("unifyfs_fops_metaget() failed");
     }
 
     /* send rpc response */

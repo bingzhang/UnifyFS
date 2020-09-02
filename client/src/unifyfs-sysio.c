@@ -702,6 +702,7 @@ static int __stat(const char* path, struct stat* buf)
 
     /* get stat information for file */
     unifyfs_file_attr_t fattr;
+    memset(&fattr, 0, sizeof(fattr));
     int ret = unifyfs_get_meta_with_size(gfid, &fattr);
     if (ret != UNIFYFS_SUCCESS) {
         errno = unifyfs_rc_errno(ret);

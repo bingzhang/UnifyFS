@@ -200,6 +200,8 @@ static inline
 void unifyfs_file_attr_to_stat(unifyfs_file_attr_t* fattr, struct stat* sb)
 {
     if (fattr && sb) {
+        debug_print_file_attr(fattr);
+
         sb->st_dev = UNIFYFS_STAT_DEFAULT_DEV;
         sb->st_ino = fattr->gfid;
         sb->st_mode = fattr->mode;

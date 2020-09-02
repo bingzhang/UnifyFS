@@ -363,7 +363,9 @@ int invoke_client_metaset_rpc(int create, unifyfs_file_attr_t* f_meta)
 
     /* fill in input struct */
     unifyfs_metaset_in_t in;
-    in.create       = (int32_t) create;
+    in.app_id    = (int32_t) unifyfs_app_id;
+    in.client_id = (int32_t) unifyfs_client_id;
+    in.create    = (int32_t) create;
     memcpy(&(in.attr), f_meta, sizeof(*f_meta));
 
     /* call rpc function */
@@ -408,7 +410,9 @@ int invoke_client_metaget_rpc(int gfid, unifyfs_file_attr_t* file_meta)
 
     /* fill in input struct */
     unifyfs_metaget_in_t in;
-    in.gfid = (int32_t)gfid;
+    in.app_id    = (int32_t) unifyfs_app_id;
+    in.client_id = (int32_t) unifyfs_client_id;
+    in.gfid      = (int32_t)gfid;
 
     /* call rpc function */
     LOGDBG("invoking the metaget rpc function in client");

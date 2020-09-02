@@ -244,7 +244,7 @@ static void unifyfs_metaget_rpc(hg_handle_t handle)
                     .app_id = in->app_id,
                     .client_id = in->client_id,
                 };
-                req->req_type = UNIFYFS_CLIENT_RPC_FILESIZE;
+                req->req_type = UNIFYFS_CLIENT_RPC_METAGET;
                 req->handle = handle;
                 req->input = (void*) in;
                 req->bulk_buf = NULL;
@@ -267,7 +267,7 @@ static void unifyfs_metaget_rpc(hg_handle_t handle)
         /* return to caller */
         unifyfs_metaget_out_t out;
         out.ret = (int32_t) ret;
-        memset(&(out.attr, 0, sizeof(out.attr));
+        memset(&(out.attr), 0, sizeof(out.attr));
         hret = margo_respond(handle, &out);
         if (hret != HG_SUCCESS) {
             LOGERR("margo_respond() failed");
@@ -304,7 +304,7 @@ static void unifyfs_metaset_rpc(hg_handle_t handle)
                     .app_id = in->app_id,
                     .client_id = in->client_id,
                 };
-                req->req_type = UNIFYFS_CLIENT_RPC_metaset;
+                req->req_type = UNIFYFS_CLIENT_RPC_METASET;
                 req->handle = handle;
                 req->input = (void*) in;
                 req->bulk_buf = NULL;

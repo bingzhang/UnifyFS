@@ -103,6 +103,8 @@ DECLARE_MARGO_RPC_HANDLER(unifyfs_metaset_rpc)
  * returns file metadata including size and name
  * given a global file id */
 MERCURY_GEN_PROC(unifyfs_metaget_in_t,
+                 ((int32_t)(app_id))
+                 ((int32_t)(client_id))
                  ((int32_t)(gfid)))
 MERCURY_GEN_PROC(unifyfs_metaget_out_t,
                  ((int32_t)(ret))

@@ -993,7 +993,9 @@ int rm_submit_client_rpc_request(unifyfs_fops_ctx_t* ctx,
     /* get application client */
     app_client* client = get_app_client(ctx->app_id, ctx->client_id);
     if (NULL == client) {
-        return (int)UNIFYFS_FAILURE;
+        LOGERR("app client [%d:%d] lookup failed",
+               ctx->app_id, ctx->client_id);
+        return EINVAL;
     }
 
     /* get thread control structure */
@@ -1020,6 +1022,8 @@ static int process_filesize_rpc(reqmgr_thrd_t* reqmgr,
     margo_free_input(req->handle, in);
     free(in);
 
+    LOGDBG("getting filesize for gfid=%d", gfid);
+
     unifyfs_fops_ctx_t ctx = {
         .app_id = reqmgr->app_id,
         .client_id = reqmgr->client_id,
@@ -1043,6 +1047,201 @@ static int process_filesize_rpc(reqmgr_thrd_t* reqmgr,
 
     return ret;
 }
+
+static int process_laminate_rpc(reqmgr_thrd_t* reqmgr,
+                                client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_laminate_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("laminating gfid=%d", gfid);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_laminate(&ctx, gfid);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_laminate() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_laminate_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
+static int process_metaget_rpc(reqmgr_thrd_t* reqmgr,
+                               client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_metaget_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("getting metadata for gfid=%d", gfid);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    unifyfs_file_attr_t fattr;
+    memset(&fattr, 0, sizeof(fattr));
+    ret = unifyfs_fops_metaget(&ctx, gfid, &fattr);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_metaset() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_metaget_out_t out;
+    out.ret = (int32_t) ret;
+    out.attr = fattr;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
+static int process_metaset_rpc(reqmgr_thrd_t* reqmgr,
+                               client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_metaset_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->attr.gfid;
+    int create = (int) in->create;
+    unifyfs_file_attr_t fattr = in->attr;
+    if (NULL != in->attr.filename) {
+        fattr.filename = strdup(in->attr.filename);
+    }
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("setting metadata for gfid=%d", gfid);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_metaset(&ctx, gfid, create, &fattr);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_metaset() failed");
+    }
+
+    if (NULL != fattr.filename) {
+        free(fattr.filename);
+    }
+
+    /* send rpc response */
+    unifyfs_metaset_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
+static int process_truncate_rpc(reqmgr_thrd_t* reqmgr,
+                                client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_truncate_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    size_t filesize = in->filesize;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("truncating gfid=%d, sz=%zu", gfid, filesize);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_truncate(&ctx, gfid, filesize);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_truncate() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_truncate_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
+static int process_unlink_rpc(reqmgr_thrd_t* reqmgr,
+                              client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+    size_t filesize = 0;
+
+    unifyfs_unlink_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("unlinking gfid=%d", gfid);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_unlink(&ctx, gfid);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_unlink() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_unlink_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
 
 /* iterate over list of chunk reads and send responses */
 static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
@@ -1074,22 +1273,43 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
     /* iterate over each chunk read request */
     for (int i = 0; i < num_client_reqs; i++) {
         /* process next request */
+        int rret;
         client_rpc_req_t* req = (client_rpc_req_t*)
             arraylist_get(client_reqs, i);
         switch (req->req_type) {
         case UNIFYFS_CLIENT_RPC_FILESIZE:
-            ret = process_filesize_rpc(reqmgr, req);
+            rret = process_filesize_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_LAMINATE:
+            rret = process_laminate_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_METAGET:
+            rret = process_metaget_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_METASET:
+            rret = process_metaset_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_TRUNCATE:
+            rret = process_truncate_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_UNLINK:
+            rret = process_unlink_rpc(reqmgr, req);
             break;
         default:
             LOGERR("unsupported client rpc request type %d", req->req_type);
-            ret = UNIFYFS_ERROR_NYI;
+            rret = UNIFYFS_ERROR_NYI;
             break;
+        }
+        if (rret != UNIFYFS_SUCCESS) {
+            LOGERR("client rpc request %d failed (%s)",
+                   i, unifyfs_rc_enum_str(rret));
+            ret = rret;
         }
     }
 
     /* free the list if we have one */
     if (NULL != client_reqs) {
-        /* NOTE: this will call free() each req in the arraylist */
+        /* NOTE: this will call free() on each req in the arraylist */
         arraylist_free(client_reqs);
     }
 

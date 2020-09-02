@@ -92,7 +92,7 @@ DECLARE_MARGO_RPC_HANDLER(unifyfs_unmount_rpc)
  * record key/value entry for this file */
 MERCURY_GEN_PROC(unifyfs_metaset_in_t,
                  ((int32_t)(app_id))
-                 ((int32_t)(local_rank_idx))
+                 ((int32_t)(client_id))
                  ((int32_t)(create))
                  ((unifyfs_file_attr_t)(attr)))
 MERCURY_GEN_PROC(unifyfs_metaset_out_t, ((int32_t)(ret)))

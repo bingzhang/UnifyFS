@@ -434,6 +434,9 @@ int invoke_client_metaget_rpc(int gfid, unifyfs_file_attr_t* file_meta)
             /* fill in results  */
             memset(file_meta, 0, sizeof(unifyfs_file_attr_t));
             *file_meta = out.attr;
+            if (NULL != out.attr.filename) {
+                file_meta->filename = strdup(out.attr.filename);
+            }
         }
         margo_free_output(handle, &out);
     } else {

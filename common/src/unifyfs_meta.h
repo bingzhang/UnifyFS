@@ -114,12 +114,14 @@ void debug_print_file_attr(unifyfs_file_attr_t* attr)
     if (!attr) {
         return;
     }
-    LOGDBG("fileattr(%p) - gfid=%d filename=%s",
-           attr, attr->gfid, attr->filename);
+    LOGDBG("fileattr(%p) - gfid=%d filename=%s laminated=%d",
+           attr, attr->gfid, attr->filename, attr->is_laminated);
     LOGDBG("             - sz=%zu mode=%o uid=%d gid=%d",
            (size_t)attr->size, attr->mode, attr->uid, attr->gid);
-    LOGDBG("             - laminated=%d ctime=%d.%09ld",
-           attr->is_laminated, (int)attr->ctime.tv_sec, attr->ctime.tv_nsec);
+    LOGDBG("             - atime=%d.%09ld ctime=%d.%09ld mtime=%d.%09ld",
+           (int)attr->atime.tv_sec, attr->atime.tv_nsec,
+           (int)attr->ctime.tv_sec, attr->ctime.tv_nsec,
+           (int)attr->mtime.tv_sec, attr->mtime.tv_nsec);
 }
 
 /*

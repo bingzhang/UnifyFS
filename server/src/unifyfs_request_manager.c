@@ -1301,7 +1301,7 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
         }
         if (rret != UNIFYFS_SUCCESS) {
             LOGERR("client rpc request %d failed (%s)",
-                   i, unifyfs_rc_enum_str(rret));
+                   i, unifyfs_rc_enum_description(rret));
             ret = rret;
         }
     }

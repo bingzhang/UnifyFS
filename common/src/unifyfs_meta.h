@@ -101,9 +101,6 @@ int unifyfs_file_attr_set_invalid(unifyfs_file_attr_t* attr)
     attr->uid = -1;
     attr->gid = -1;
     attr->size = (uint64_t) -1;
-    attr->atime.tv_sec = (uint64_t) -1;
-    attr->mtime.tv_sec = (uint64_t) -1;
-    attr->ctime.tv_sec = (uint64_t) -1;
 
     return 0;
 }
@@ -167,19 +164,19 @@ int unifyfs_file_attr_update(unifyfs_file_attr_t* dst,
     }
 #endif
 
-    if (src->atime.tv_sec != (uint64_t) -1) {
+    if (src->atime.tv_sec != 0) {
         LOGDBG("setting attr.atime to %d.%09ld",
                (int)src->atime.tv_sec, src->atime.tv_nsec);
         dst->atime = src->atime;
     }
 
-    if (src->mtime.tv_sec != (uint64_t) -1) {
+    if (src->mtime.tv_sec != 0) {
         LOGDBG("setting attr.mtime to %d.%09ld",
                (int)src->mtime.tv_sec, src->mtime.tv_nsec);
         dst->mtime = src->mtime;
     }
 
-    if (src->ctime.tv_sec != (uint64_t) -1) {
+    if (src->ctime.tv_sec != 0) {
         LOGDBG("setting attr.ctime to %d.%09ld",
                (int)src->ctime.tv_sec, src->ctime.tv_nsec);
         dst->ctime = src->ctime;
@@ -226,9 +223,9 @@ void unifyfs_file_attr_to_stat(unifyfs_file_attr_t* fattr, struct stat* sb)
          */
         sb->st_nlink = fattr->is_laminated ? 1 : 0;
 
-        sb->st_atime = fattr->atime.tv_sec;
-        sb->st_mtime = fattr->mtime.tv_sec;
-        sb->st_ctime = fattr->ctime.tv_sec;
+        sb->st_atim = fattr->atime;
+        sb->st_mtim = fattr->mtime;
+        sb->st_ctim = fattr->ctime;
     }
 }
 

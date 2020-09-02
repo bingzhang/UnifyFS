@@ -166,7 +166,7 @@ reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id, int client_id)
 
     /* launch request manager thread */
     rc = pthread_create(&(thrd_ctrl->thrd), NULL,
-                        rm_delegate_request_thread, (void*)thrd_ctrl);
+                        request_manager_thread, (void*)thrd_ctrl);
     if (rc != 0) {
         LOGERR("failed to create request manager thread for "
                "app_id=%d client_id=%d - rc=%d (%s)",
@@ -1321,7 +1321,7 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
  *
  * @param arg: pointer to RM thread control structure
  * @return NULL */
-void* rm_delegate_request_thread(void* arg)
+void* request_manager_thread(void* arg)
 {
     /* get pointer to our thread control structure */
     reqmgr_thrd_t* thrd_ctrl = (reqmgr_thrd_t*) arg;

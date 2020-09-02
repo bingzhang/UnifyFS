@@ -117,7 +117,7 @@ reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id,
                                       int client_id);
 
 /* Request Manager pthread main */
-void* rm_delegate_request_thread(void* arg);
+void* request_manager_thread(void* arg);
 
 /* function called by main thread to instruct
  * resource manager thread to exit,

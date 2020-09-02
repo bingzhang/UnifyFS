@@ -33,7 +33,7 @@
 #include "unifyfs_global.h"
 
 /* service manager pthread routine */
-void* sm_service_reads(void* ctx);
+void* service_manager_thread(void* ctx);
 
 /* initialize and launch service manager */
 int svcmgr_init(void);

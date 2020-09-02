@@ -259,7 +259,7 @@ int svcmgr_init(void)
     sm->initialized = 1;
 
     int rc = pthread_create(&(sm->thrd), NULL,
-                            sm_service_reads, (void*)sm);
+                            service_manager_thread, (void*)sm);
     if (rc != 0) {
         LOGERR("failed to create service manager thread");
         svcmgr_fini();
@@ -346,7 +346,7 @@ static int send_chunk_read_responses(void)
  *
  * @param arg: pointer to SM thread control structure
  * @return NULL */
-void* sm_service_reads(void* arg)
+void* service_manager_thread(void* arg)
 {
     int rc;
 

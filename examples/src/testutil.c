@@ -354,17 +354,19 @@ int stat_cmd(test_cfg* cfg, char* filename)
     test_print(cfg, "Blocks allocated:         %llu",
         (unsigned long long) sb.st_blocks);
 
-    memset(datestr, 0, sizeof(datestr));
-    datestamp = sb.st_atime;
-    ctime_r(&datestamp, datestr);
-    test_print(cfg, "Last file access:         %s (atime=%d, atim=%d.%ld)",
-               datestr, datestamp, (int)sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
+
 
     memset(datestr, 0, sizeof(datestr));
     datestamp = sb.st_mtime;
     ctime_r(&datestamp, datestr);
     test_print(cfg, "Last file modification:   %s (mtime=%d, mtim=%d.%ld)",
                datestr, datestamp, (int)sb.st_mtim.tv_sec, sb.st_mtim.tv_nsec);
+
+    memset(datestr, 0, sizeof(datestr));
+    datestamp = sb.st_atime;
+    ctime_r(&datestamp, datestr);
+    test_print(cfg, "Last file access:         %s (atime=%d, atim=%d.%ld)",
+               datestr, datestamp, (int)sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
 
     memset(datestr, 0, sizeof(datestr));
     datestamp = sb.st_ctime;

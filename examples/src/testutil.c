@@ -279,6 +279,7 @@ int stat_cmd(test_cfg* cfg, char* filename)
     int rc;
     const char* typestr;
     char* tmp;
+    char datestamp[32];
 
     rc = stat(filename, &sb);
     if (rc) {
@@ -351,13 +352,14 @@ int stat_cmd(test_cfg* cfg, char* filename)
         (unsigned long) sb.st_blksize);
     test_print(cfg, "Blocks allocated:         %llu",
         (unsigned long long) sb.st_blocks);
+
+    ctime_r(&(sb.st_atim.tv_sec), datestamp);
     test_print(cfg, "Last file access:         %s (%d.%ld)",
-               ctime(&(sb.st_atim.tv_sec)),
-               (int)sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
+               datestamp, (int)sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
+    ctime_r(&(sb.st_mtim.tv_sec), datestamp);
     test_print(cfg, "Last file modification:   %s (%d.%ld)",
-               ctime(&(sb.st_mtim.tv_sec)),
-               (int)sb.st_mtim.tv_sec, sb.st_mtim.tv_nsec);
+               datestamp, (int)sb.st_mtim.tv_sec, sb.st_mtim.tv_nsec);
+    ctime_r(&(sb.st_ctim.tv_sec), datestamp);
     test_print(cfg, "Last status change:       %s (%d.%ld)",
-               ctime(&(sb.st_ctim.tv_sec)),
-               (int)sb.st_ctim.tv_sec, sb.st_ctim.tv_nsec);
+               datestamp, (int)sb.st_ctim.tv_sec, sb.st_ctim.tv_nsec);
 }

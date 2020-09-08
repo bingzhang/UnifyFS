@@ -921,7 +921,7 @@ unifyfs_rc disconnect_app_client(app_client* client)
 
     /* stop client request manager thread */
     if (NULL != client->reqmgr) {
-        rm_cmd_exit(client->reqmgr);
+        rm_request_exit(client->reqmgr);
     }
 
     /* free margo client address */

@@ -161,7 +161,7 @@ reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id, int client_id)
     /* initialize flow control flags */
     thrd_ctrl->exit_flag              = 0;
     thrd_ctrl->exited                 = 0;
-    thrd_ctrl->has_waiting_delegator  = 0;
+    thrd_ctrl->waiting_for_work       = 0;
     thrd_ctrl->has_waiting_dispatcher = 0;
 
     /* launch request manager thread */
@@ -254,40 +254,44 @@ int rm_release_read_req(reqmgr_thrd_t* thrd_ctrl,
     return release_read_req(thrd_ctrl, rdreq);
 }
 
-static void signal_new_requests(reqmgr_thrd_t* thrd_ctrl)
+static void signal_new_requests(reqmgr_thrd_t* reqmgr)
 {
-    RM_LOCK(thrd_ctrl);
+    RM_LOCK(reqmgr);
+    pid_t this_thread = unifyfs_gettid();
+    if (this_thread != reqmgr->tid) {
+        /* wake up the request manager thread for the requesting client */
+        if (!reqmgr->waiting_for_work) {
+            /* reqmgr thread is not waiting, but we are in critical
+            * section, we just added requests so we must wait for reqmgr
+            * to signal us that it's reached the critical section before
+            * we escape so we don't overwrite these requests before it
+            * has had a chance to process them */
+            reqmgr->has_waiting_dispatcher = 1;
+            pthread_cond_wait(&reqmgr->thrd_cond, &reqmgr->thrd_lock);
 
-    /* wake up the request manager thread for the requesting client */
-    if (!thrd_ctrl->has_waiting_delegator) {
-        /* reqmgr thread is not waiting, but we are in critical
-         * section, we just added requests so we must wait for reqmgr
-         * to signal us that it's reached the critical section before
-         * we escape so we don't overwrite these requests before it
-         * has had a chance to process them */
-        thrd_ctrl->has_waiting_dispatcher = 1;
-        pthread_cond_wait(&thrd_ctrl->thrd_cond, &thrd_ctrl->thrd_lock);
-
-        /* reqmgr thread has signaled us that it's now waiting */
-        thrd_ctrl->has_waiting_dispatcher = 0;
+            /* reqmgr thread has signaled us that it's now waiting */
+            reqmgr->has_waiting_dispatcher = 0;
+        }
+        /* have a reqmgr thread waiting on condition variable,
+        * signal it to begin processing the requests we just added */
+        pthread_cond_signal(&reqmgr->thrd_cond);
     }
-    /* have a reqmgr thread waiting on condition variable,
-     * signal it to begin processing the requests we just added */
-    pthread_cond_signal(&thrd_ctrl->thrd_cond);
-
-    RM_UNLOCK(thrd_ctrl);
+    RM_UNLOCK(reqmgr);
 }
 
-static void signal_new_responses(reqmgr_thrd_t* thrd_ctrl)
+static void signal_new_responses(reqmgr_thrd_t* reqmgr)
 {
-    RM_LOCK(thrd_ctrl);
-    /* wake up the request manager thread */
-    if (thrd_ctrl->has_waiting_delegator) {
-        /* have a reqmgr thread waiting on condition variable,
-         * signal it to begin processing the responses we just added */
-        pthread_cond_signal(&thrd_ctrl->thrd_cond);
+    RM_LOCK(reqmgr);
+    pid_t this_thread = unifyfs_gettid();
+    if (this_thread != reqmgr->tid) {
+        /* wake up the request manager thread */
+        if (reqmgr->waiting_for_work) {
+            /* have a reqmgr thread waiting on condition variable,
+            * signal it to begin processing the responses we just added */
+            pthread_cond_signal(&reqmgr->thrd_cond);
+        }
     }
-    RM_UNLOCK(thrd_ctrl);
+    RM_UNLOCK(reqmgr);
 }
 
 /* issue remote chunk read requests for extent chunks
@@ -511,7 +515,7 @@ static int client_wait(shm_data_header* hdr)
 /* function called by main thread to instruct
  * resource manager thread to exit,
  * returns UNIFYFS_SUCCESS on success */
-int rm_cmd_exit(reqmgr_thrd_t* thrd_ctrl)
+int rm_request_exit(reqmgr_thrd_t* thrd_ctrl)
 {
     if (thrd_ctrl->exited) {
         /* already done */
@@ -523,7 +527,7 @@ int rm_cmd_exit(reqmgr_thrd_t* thrd_ctrl)
 
     /* if reqmgr thread is not waiting in critical
      * section, let's wait on it to come back */
-    if (!thrd_ctrl->has_waiting_delegator) {
+    if (!thrd_ctrl->waiting_for_work) {
         /* reqmgr thread is not in critical section,
          * tell it we've got something and signal it */
         thrd_ctrl->has_waiting_dispatcher = 1;
@@ -1048,6 +1052,42 @@ static int process_filesize_rpc(reqmgr_thrd_t* reqmgr,
     return ret;
 }
 
+static int process_fsync_rpc(reqmgr_thrd_t* reqmgr,
+                             client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_fsync_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("syncing gfid=%d", gfid);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_fsync(&ctx, gfid);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_fsync() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_fsync_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
 static int process_laminate_rpc(reqmgr_thrd_t* reqmgr,
                                 client_rpc_req_t* req)
 {
@@ -1156,6 +1196,45 @@ static int process_metaset_rpc(reqmgr_thrd_t* reqmgr,
 
     /* send rpc response */
     unifyfs_metaset_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
+static int process_read_rpc(reqmgr_thrd_t* reqmgr,
+                            client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_read_in_t* in = req->input;
+    assert(in != NULL);
+    int gfid = in->gfid;
+    off_t offset = in->offset;
+    size_t len = in->length;
+    margo_free_input(req->handle, in);
+    free(in);
+
+    LOGDBG("reading gfid=%d (offset=%zu, length=%zu)",
+           gfid, (size_t)offset, len);
+
+    unifyfs_fops_ctx_t ctx = {
+        .app_id = reqmgr->app_id,
+        .client_id = reqmgr->client_id,
+    };
+    ret = unifyfs_fops_read(&ctx, gfid, offset, len);
+    if (ret != UNIFYFS_SUCCESS) {
+        LOGERR("unifyfs_fops_read() failed");
+    }
+
+    /* send rpc response */
+    unifyfs_read_out_t out;
     out.ret = (int32_t) ret;
     hg_return_t hret = margo_respond(req->handle, &out);
     if (hret != HG_SUCCESS) {
@@ -1288,6 +1367,12 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
         case UNIFYFS_CLIENT_RPC_METASET:
             rret = process_metaset_rpc(reqmgr, req);
             break;
+        case UNIFYFS_CLIENT_RPC_READ:
+            rret = process_read_rpc(reqmgr, req);
+            break;
+        case UNIFYFS_CLIENT_RPC_SYNC:
+            rret = process_fsync_rpc(reqmgr, req);
+            break;
         case UNIFYFS_CLIENT_RPC_TRUNCATE:
             rret = process_truncate_rpc(reqmgr, req);
             break;
@@ -1326,6 +1411,7 @@ void* request_manager_thread(void* arg)
     /* get pointer to our thread control structure */
     reqmgr_thrd_t* thrd_ctrl = (reqmgr_thrd_t*) arg;
 
+    thrd_ctrl->tid = unifyfs_gettid();
     LOGDBG("I am request manager thread!");
 
     /* loop forever to handle read requests from the client,
@@ -1350,7 +1436,7 @@ void* request_manager_thread(void* arg)
 
         /* inform dispatcher that we're waiting for work
          * inside the critical section */
-        thrd_ctrl->has_waiting_delegator = 1;
+        thrd_ctrl->waiting_for_work = 1;
 
         /* if dispatcher is waiting on us, signal it to go ahead,
          * this coordination ensures that we'll be the next thread
@@ -1368,7 +1454,7 @@ void* request_manager_thread(void* arg)
         LOGDBG("RM[%d:%d] got work", thrd_ctrl->app_id, thrd_ctrl->client_id);
 
         /* set flag to indicate we're no longer waiting */
-        thrd_ctrl->has_waiting_delegator = 0;
+        thrd_ctrl->waiting_for_work = 0;
         RM_UNLOCK(thrd_ctrl);
 
         /* bail out if we've been told to exit */
@@ -1466,8 +1552,6 @@ int invoke_chunk_read_request_rpc(int dst_srvr_rank,
 
     return ret;
 }
-
-
 
 
 /* BEGIN MARGO SERVER-SERVER RPC HANDLER FUNCTIONS */

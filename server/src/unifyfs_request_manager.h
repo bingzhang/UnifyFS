@@ -58,6 +58,7 @@ typedef struct {
 typedef struct reqmgr_thrd {
     /* request manager (RM) thread */
     pthread_t thrd;
+    pid_t tid;
 
     /* condition variable to synchronize request manager thread
      * and margo rpc handler ULT delivering work */
@@ -67,7 +68,7 @@ typedef struct reqmgr_thrd {
     pthread_mutex_t thrd_lock;
 
     /* flag indicating request manager thread is waiting on thrd_cond CV */
-    int has_waiting_delegator;
+    int waiting_for_work;
 
     /* flag indicating a margo rpc handler ULT is waiting on thrd_cond CV */
     int has_waiting_dispatcher;
@@ -122,7 +123,7 @@ void* request_manager_thread(void* arg);
 /* function called by main thread to instruct
  * resource manager thread to exit,
  * returns UNIFYFS_SUCCESS on success */
-int rm_cmd_exit(reqmgr_thrd_t* thrd_ctrl);
+int rm_request_exit(reqmgr_thrd_t* thrd_ctrl);
 
 /* update state for remote chunk reads with received response data */
 int rm_post_chunk_read_responses(int app_id,

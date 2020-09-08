@@ -355,9 +355,9 @@ int stat_cmd(test_cfg* cfg, char* filename)
                ctime(&(sb.st_atim.tv_sec)),
                (int)sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
     test_print(cfg, "Last file modification:   %s (%d.%ld)",
-               ctime(&(sb.st_mtim.tv_sec))
+               ctime(&(sb.st_mtim.tv_sec)),
                (int)sb.st_mtim.tv_sec, sb.st_mtim.tv_nsec);
     test_print(cfg, "Last status change:       %s (%d.%ld)",
-               ctime(&(sb.st_ctim.tv_sec))
+               ctime(&(sb.st_ctim.tv_sec)),
                (int)sb.st_ctim.tv_sec, sb.st_ctim.tv_nsec);
 }

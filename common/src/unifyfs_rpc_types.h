@@ -24,7 +24,7 @@
 /* rpc encode/decode for timespec structs */
 typedef struct timespec sys_timespec_t;
 MERCURY_GEN_STRUCT_PROC(sys_timespec_t,
-    ((uint32_t)(tv_sec))
+    ((uint64_t)(tv_sec))
     ((uint64_t)(tv_nsec))
 )
 

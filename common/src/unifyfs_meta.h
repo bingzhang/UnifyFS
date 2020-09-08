@@ -115,7 +115,7 @@ void debug_print_file_attr(unifyfs_file_attr_t* attr)
            attr, attr->gfid, attr->filename, attr->is_laminated);
     LOGDBG("             - sz=%zu mode=%o uid=%d gid=%d",
            (size_t)attr->size, attr->mode, attr->uid, attr->gid);
-    LOGDBG("             - atime=%d.%09ld ctime=%d.%09ld mtime=%d.%09ld",
+    LOGDBG("             - atime=%ld.%09ld ctime=%ld.%09ld mtime=%ld.%09ld",
            (int)attr->atime.tv_sec, attr->atime.tv_nsec,
            (int)attr->ctime.tv_sec, attr->ctime.tv_nsec,
            (int)attr->mtime.tv_sec, attr->mtime.tv_nsec);

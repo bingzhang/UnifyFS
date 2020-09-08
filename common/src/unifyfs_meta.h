@@ -116,9 +116,9 @@ void debug_print_file_attr(unifyfs_file_attr_t* attr)
     LOGDBG("             - sz=%zu mode=%o uid=%d gid=%d",
            (size_t)attr->size, attr->mode, attr->uid, attr->gid);
     LOGDBG("             - atime=%ld.%09ld ctime=%ld.%09ld mtime=%ld.%09ld",
-           (int)attr->atime.tv_sec, attr->atime.tv_nsec,
-           (int)attr->ctime.tv_sec, attr->ctime.tv_nsec,
-           (int)attr->mtime.tv_sec, attr->mtime.tv_nsec);
+           attr->atime.tv_sec, attr->atime.tv_nsec,
+           attr->ctime.tv_sec, attr->ctime.tv_nsec,
+           attr->mtime.tv_sec, attr->mtime.tv_nsec);
 }
 
 /*

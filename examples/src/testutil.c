@@ -276,7 +276,7 @@ int sync_cmd(test_cfg* cfg, char* filename)
 int stat_cmd(test_cfg* cfg, char* filename)
 {
     struct stat sb;
-    time_t datestamp;
+    time_t timestamp;
     int rc;
     const char* typestr;
     char* tmp;
@@ -355,20 +355,17 @@ int stat_cmd(test_cfg* cfg, char* filename)
         (unsigned long long) sb.st_blocks);
 
     memset(datestr, 0, sizeof(datestr));
-    datestamp = sb.st_mtime;
-    ctime_r(&datestamp, datestr);
-    test_print(cfg, "Last file modification:   %s (mtime=%ld, mtim=%ld.%ld)",
-               datestr, datestamp, sb.st_mtim.tv_sec, sb.st_mtim.tv_nsec);
+    timestamp = sb.st_atime;
+    ctime_r(&timestamp, datestr);
+    test_print(cfg, "Last file access:         %s", datestr);
 
     memset(datestr, 0, sizeof(datestr));
-    datestamp = sb.st_atime;
-    ctime_r(&datestamp, datestr);
-    test_print(cfg, "Last file access:         %s (atime=%ld, atim=%ld.%ld)",
-               datestr, datestamp, sb.st_atim.tv_sec, sb.st_atim.tv_nsec);
+    timestamp = sb.st_mtime;
+    ctime_r(&timestamp, datestr);
+    test_print(cfg, "Last file modification:   %s", datestr);
 
     memset(datestr, 0, sizeof(datestr));
-    datestamp = sb.st_ctime;
-    ctime_r(&datestamp, datestr);
-    test_print(cfg, "Last status change:       %s (ctime=%ld, ctim=%ld.%ld)",
-               datestr, datestamp, sb.st_ctim.tv_sec, sb.st_ctim.tv_nsec);
+    timestamp = sb.st_ctime;
+    ctime_r(&timestamp, datestr);
+    test_print(cfg, "Last status change:       %s", datestr);
 }

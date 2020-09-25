@@ -22,6 +22,16 @@
 #include "unifyfs_global.h"
 
 /**
+ * @brief file extent descriptor
+ */
+struct unifyfs_inode_extent {
+    int gfid;
+    unsigned long offset;
+    unsigned long length;
+};
+typedef struct unifyfs_inode_extent unifyfs_inode_extent_t;
+
+/**
  * @brief file and directory inode structure. this holds:
  */
 struct unifyfs_inode {
@@ -58,7 +68,8 @@ int unifyfs_inode_create(int gfid, unifyfs_file_attr_t* attr);
  *
  * @return 0 on success, errno otherwise
  */
-int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr);
+int unifyfs_inode_update_attr(int gfid, int attr_op,
+                              unifyfs_file_attr_t* attr);
 
 /**
  * @brief create a new or update an existing inode.
@@ -69,19 +80,9 @@ int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr);
  *
  * @return 0 on success, errno otherwise
  */
-static inline
-int unifyfs_inode_metaset(int gfid, int attrop, unifyfs_file_attr_t* attr)
-{
-    int ret = 0;
 
-    if (attrop == UNIFYFS_FILE_ATTR_OP_CREATE) {
-        ret = unifyfs_inode_create(gfid, attr);
-    } else {
-        ret = unifyfs_inode_update_attr(gfid, attrop, attr);
-    }
-
-    return ret;
-}
+int unifyfs_inode_metaset(int gfid, int attr_op,
+                          unifyfs_file_attr_t* attr);
 
 /**
  * @brief read attributes for file with @gfid.
@@ -155,58 +156,35 @@ int unifyfs_inode_get_filesize(int gfid, size_t* offset);
  */
 int unifyfs_inode_laminate(int gfid);
 
-struct unifyfs_inode_chunk {
-    int gfid;
-    unsigned long offset;
-    unsigned long length;
-};
-typedef struct unifyfs_inode_chunk unifyfs_inode_chunk_t;
-
 /**
  * @brief Get chunks for given file extent
  *
- * @param gfid
- * @param offset
- * @param len
- * @param[out] n_chunks
- * @param[out] chunks
+ * @param extent  target file extent
+ *
+ * @param[out] n_chunks  number of output chunk locations
+ * @param[out] chunks    array of output chunk locations
  *
  * @return UNIFYFS_SUCCESS, or error code
  */
-int unifyfs_inode_get_chunk_list(
-    int gfid,
-    unsigned long offset,
-    unsigned long len,
-    unsigned int* n_chunks,
-    chunk_read_req_t** chunks);
+int unifyfs_inode_get_extent_chunks(unifyfs_inode_extent_t* extent,
+                                    unsigned* n_chunks,
+                                    chunk_read_req_t** chunks);
 
 /**
- * @brief Get chunks for given file extent request
+ * @brief Get chunk locations for an array of file extents
  *
- * @param chunk_request
- * @param[out] n_chunks
- * @param[out] chunks
+ * @param n_extents  number of input extents
+ * @param extents    array or requested extents
+ *
+ * @param[out] n_locs     number of output chunk locations
+ * @param[out] chunklocs  array of output chunk locations
  *
  * @return UNIFYFS_SUCCESS, or error code
  */
-static inline int unifyfs_inode_resolve_chunk_request(
-    unifyfs_inode_chunk_t* chunk_request,
-    unsigned int* n_chunks,
-    chunk_read_req_t** chunks)
-{
-    int ret = EINVAL;
-
-    if (chunk_request) {
-        int gfid = chunk_request->gfid;
-        unsigned long offset = chunk_request->offset;
-        unsigned long length = chunk_request->length;
-
-        ret = unifyfs_inode_get_chunk_list(gfid, offset, length,
-                                           n_chunks, chunks);
-    }
-
-    return ret;
-}
+int unifyfs_inode_resolve_extent_chunks(unsigned n_extents,
+                                        unifyfs_inode_extent_t* extents,
+                                        unsigned* n_locs,
+                                        chunk_read_req_t** chunklocs)
 
 /**
  * @brief calls extents_tree_span, which will do:

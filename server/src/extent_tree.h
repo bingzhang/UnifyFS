@@ -163,8 +163,8 @@ int extent_tree_span(
 int extent_tree_get_chunk_list(
     struct extent_tree* extent_tree, /* extent tree to search */
     unsigned long offset,            /* starting logical offset */
-    unsigned long len,               /* ending logical offset */
-    unsigned int* n_chunks,          /* [out] number of extents returned */
+    unsigned long len,               /* length of extent */
+    unsigned int* n_chunks,          /* [out] number of chunks returned */
     chunk_read_req_t** chunks);      /* [out] extent array */
 
 /* dump method for debugging extent trees */

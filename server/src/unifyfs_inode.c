@@ -40,9 +40,10 @@ struct unifyfs_inode* unifyfs_inode_alloc(int gfid, unifyfs_file_attr_t* attr)
     return ino;
 }
 
-static inline int unifyfs_inode_destroy(struct unifyfs_inode* ino)
+static inline
+int unifyfs_inode_destroy(struct unifyfs_inode* ino)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
 
     if (ino) {
         if (NULL != ino->attr.filename) {
@@ -70,7 +71,8 @@ static inline int unifyfs_inode_destroy(struct unifyfs_inode* ino)
  *
  * @return 0 on success, errno otherwise
  */
-static inline int unifyfs_inode_rdlock(struct unifyfs_inode* ino)
+static inline
+int unifyfs_inode_rdlock(struct unifyfs_inode* ino)
 {
     return pthread_rwlock_rdlock(&ino->rwlock);
 }
@@ -82,7 +84,8 @@ static inline int unifyfs_inode_rdlock(struct unifyfs_inode* ino)
  *
  * @return 0 on success, errno otherwise
  */
-static inline int unifyfs_inode_wrlock(struct unifyfs_inode* ino)
+static inline
+int unifyfs_inode_wrlock(struct unifyfs_inode* ino)
 {
     return pthread_rwlock_wrlock(&ino->rwlock);
 }
@@ -92,14 +95,15 @@ static inline int unifyfs_inode_wrlock(struct unifyfs_inode* ino)
  *
  * @param ino inode structure to unlock
  */
-static inline void unifyfs_inode_unlock(struct unifyfs_inode* ino)
+static inline
+void unifyfs_inode_unlock(struct unifyfs_inode* ino)
 {
     pthread_rwlock_unlock(&ino->rwlock);
 }
 
 int unifyfs_inode_create(int gfid, unifyfs_file_attr_t* attr)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     if (!attr) {
@@ -121,9 +125,10 @@ int unifyfs_inode_create(int gfid, unifyfs_file_attr_t* attr)
     return ret;
 }
 
-int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr)
+int unifyfs_inode_update_attr(int gfid, int attr_op,
+                              unifyfs_file_attr_t* attr)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     if (!attr) {
@@ -140,7 +145,7 @@ int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr)
 
         unifyfs_inode_wrlock(ino);
         {
-            unifyfs_file_attr_update(attrop, &ino->attr, attr);
+            unifyfs_file_attr_update(attr_op, &ino->attr, attr);
         }
         unifyfs_inode_unlock(ino);
     }
@@ -150,9 +155,23 @@ out_unlock_tree:
     return ret;
 }
 
+int unifyfs_inode_metaset(int gfid, int attr_op,
+                          unifyfs_file_attr_t* attr)
+{
+    int ret;
+
+    if (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) {
+        ret = unifyfs_inode_create(gfid, attr);
+    } else {
+        ret = unifyfs_inode_update_attr(gfid, attr_op, attr);
+    }
+
+    return ret;
+}
+
 int unifyfs_inode_metaget(int gfid, unifyfs_file_attr_t* attr)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     if (!global_inode_tree || !attr) {
@@ -175,7 +194,7 @@ int unifyfs_inode_metaget(int gfid, unifyfs_file_attr_t* attr)
 
 int unifyfs_inode_unlink(int gfid)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     unifyfs_inode_tree_wrlock(global_inode_tree);
@@ -195,7 +214,7 @@ out:
 
 int unifyfs_inode_truncate(int gfid, unsigned long size)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     unifyfs_inode_tree_rdlock(global_inode_tree);
@@ -252,7 +271,7 @@ static struct extent_tree* inode_get_extent_tree(struct unifyfs_inode* ino)
 int unifyfs_inode_add_extents(int gfid, int num_extents,
                               struct extent_tree_node* nodes)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     int i = 0;
     struct unifyfs_inode* ino = NULL;
     struct extent_tree* tree = NULL;
@@ -318,7 +337,7 @@ out_unlock_tree:
 
 int unifyfs_inode_get_filesize(int gfid, size_t* offset)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     size_t filesize = 0;
     struct unifyfs_inode* ino = NULL;
 
@@ -350,7 +369,7 @@ out_unlock_tree:
 
 int unifyfs_inode_laminate(int gfid)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     unifyfs_inode_tree_rdlock(global_inode_tree);
@@ -379,7 +398,7 @@ out_unlock_tree:
 int unifyfs_inode_get_extents(int gfid, size_t* n,
                               struct extent_tree_node** nodes)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     if (!n || !nodes) {
@@ -424,15 +443,13 @@ out_unlock_tree:
     return ret;
 }
 
-int unifyfs_inode_get_chunk_list(
-    int gfid,
-    unsigned long offset,
-    unsigned long len,
-    unsigned int* n_chunks,
-    chunk_read_req_t** chunks)
+int unifyfs_inode_get_extent_chunks(unifyfs_inode_extent_t* extent,
+                                    unsigned* n_chunks,
+                                    chunk_read_req_t** chunks)
 {
     int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
+    int gfid = extent->gfid;
 
     unifyfs_inode_tree_rdlock(global_inode_tree);
     {
@@ -445,6 +462,8 @@ int unifyfs_inode_get_chunk_list(
         unifyfs_inode_rdlock(ino);
         {
             if (NULL != ino->extents) {
+                unsigned long offset = extent->offset;
+                unsigned long len = extent->length;
                 ret = extent_tree_get_chunk_list(ino->extents, offset, len,
                                                  n_chunks, chunks);
                 if (ret) {
@@ -459,12 +478,105 @@ out_unlock_tree:
     unifyfs_inode_tree_unlock(global_inode_tree);
 
     if (ret == UNIFYFS_SUCCESS) {
-        unsigned int i;
-
         /* extent_tree_get_chunk_list does not populate the gfid field */
-        for (i = 0; i < *n_chunks; i++) {
+        for (unsigned i = 0; i < *n_chunks; i++) {
             (*chunks)[i].gfid = gfid;
         }
+    } else {
+        *n_chunks = 0;
+        *chunks = NULL;
+    }
+
+    return ret;
+}
+
+int unifyfs_inode_resolve_extent_chunks(unsigned n_extents,
+                                        unifyfs_inode_extent_t* extents,
+                                        unsigned* n_locs,
+                                        chunk_read_req_t** chunklocs)
+{
+    int ret = UNIFYFS_SUCCESS;
+    unsigned i = 0;
+    unsigned j = 0;
+    unsigned n_chunks = 0;
+    chunk_read_req_t* chunks = NULL;
+    unsigned* n_resolved = NULL;
+    chunk_read_req_t** resolved = NULL;
+
+    void* buf = calloc(n_extents, (sizeof(*n_resolved) + sizeof(*resolved)));
+    if (NULL == buf) {
+        LOGERR("failed to allocate memory");
+        ret = ENOMEM;
+        goto out_fail;
+    }
+
+    n_resolved = (unsigned*) buf;
+    resolved = (chunk_read_req_t**) &n_resolved[n_extents];
+
+    /* resolve chunks addresses for all requests from inode tree */
+    for (i = 0; i < n_extents; i++) {
+        unifyfs_inode_extent_t* current = &extents[i];
+
+        LOGDBG("resolving chunk request (gfid=%d, offset=%lu, length=%lu)",
+               current->gfid, current->offset, current->length);
+
+        ret = unifyfs_inode_get_extent_chunks(current,
+                                              &n_resolved[i], &resolved[i]);
+        if (ret) {
+            LOGERR("failed to resolve the chunk request for chunk "
+                   "[gfid=%d, offset=%lu, length=%zu] (ret=%d)",
+                   current->gfid, current->offset, current->length, ret);
+            goto out_fail;
+        }
+
+        n_chunks += n_resolved[i];
+    }
+
+    LOGDBG("resolved %d chunks for read request", n_chunks);
+    if (n_chunks > 0) {
+        /* store all chunks in a flat array */
+        chunks = calloc(n_chunks, sizeof(*chunks));
+        if (!chunks) {
+            LOGERR("failed to allocate memory for storing resolved chunks");
+            ret = ENOMEM;
+            goto out_fail;
+        }
+
+        chunk_read_req_t* pos = chunks;
+        for (i = 0; i < n_extents; i++) {
+            for (j = 0; j < n_resolved[i]; j++) {
+                *pos = resolved[i][j];
+                pos++;
+            }
+            if (resolved[i]) {
+                free(resolved[i]);
+            }
+        }
+
+        /* sort the requests based on server rank */
+        qsort(chunks, n_chunks, sizeof(*chunks), compare_chunks);
+
+        chunk_read_req_t* chk = chunks;
+        for (i = 0; i < n_chunks; i++, chk++) {
+            LOGDBG(" [%d] (offset=%lu, nbytes=%lu) @ (%d log(%d:%d:%lu))",
+                   i, chk->offset, chk->nbytes, chk->rank,
+                   chk->log_client_id, chk->log_app_id, chk->log_offset);
+        }
+    }
+
+    *n_locs = n_chunks;
+    *chunklocs = chunks;
+
+out_fail:
+    if (ret != UNIFYFS_SUCCESS) {
+        if (chunks) {
+            free(chunks);
+            chunks = NULL;
+        }
+    }
+
+    if (NULL != buf) {\
+        free(buf);
     }
 
     return ret;
@@ -479,7 +591,7 @@ int unifyfs_inode_span_extents(
     void* vals,                    /* array of length max for output values */
     int* outnum)                   /* number of entries returned */
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     unifyfs_inode_tree_rdlock(global_inode_tree);
@@ -509,7 +621,7 @@ out_unlock_tree:
 
 int unifyfs_inode_dump(int gfid)
 {
-    int ret = 0;
+    int ret = UNIFYFS_SUCCESS;
     struct unifyfs_inode* ino = NULL;
 
     unifyfs_inode_tree_rdlock(global_inode_tree);

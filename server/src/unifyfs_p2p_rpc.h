@@ -15,6 +15,10 @@
 #ifndef _UNIFYFS_P2P_RPC_H
 #define _UNIFYFS_P2P_RPC_H
 
+#include "unifyfs_global.h"
+#include "extent_tree.h"
+
+
 /* Point-to-point Server RPCs */
 
 
@@ -25,15 +29,33 @@ int hash_gfid_to_server(int gfid);
 /**
  * @brief Add new extents to target file
  *
- * @param gfid     target file
- * @param len      length of file extents array
- * @param extents  array of extents to add
+ * @param gfid         target file
+ * @param num_extents  length of file extents array
+ * @param extents      array of extents to add
  *
  * @return success|failure
  */
 int unifyfs_invoke_add_extents_rpc(int gfid,
-                                   unsigned len,
+                                   unsigned num_extents,
                                    struct extent_tree_node* extents);
+
+/**
+ * @brief Find location of extents for target file
+ *
+ * @param gfid         target file
+ * @param num_extents  length of file extents array
+ * @param extents      array of extents to find
+ *
+ * @param[out] num_chunks  number of chunk locations
+ * @param[out] chunks      array of chunk locations for requested extents
+ *
+ * @return success|failure
+ */
+int unifyfs_invoke_find_extents_rpc(int gfid,
+                                    unsigned num_extents,
+                                    unifyfs_extent_t* extents,
+                                    unsigned* num_chunks,
+                                    chunk_read_req_t** chunks);
 
 /**
  * @brief Get file size for the target file

@@ -83,6 +83,7 @@ DECLARE_MARGO_RPC_HANDLER(chunk_read_response_rpc)
 
 /* Add file extents at owner */
 MERCURY_GEN_PROC(add_extents_in_t,
+                 ((int32_t)(src_rank))
                  ((int32_t)(gfid))
                  ((int32_t)(num_extents))
                  ((hg_bulk_t)(extents)))

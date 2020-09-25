@@ -652,7 +652,7 @@ static void chunk_req_from_extent(
 int extent_tree_get_chunk_list(
     struct extent_tree* extent_tree, /* extent tree to search */
     unsigned long offset,            /* starting logical offset */
-    unsigned long len,               /* ending logical offset */
+    unsigned long len,               /* length of extent */
     unsigned int* n_chunks,          /* [out] number of extents returned */
     chunk_read_req_t** chunks)       /* [out] extent array */
 {

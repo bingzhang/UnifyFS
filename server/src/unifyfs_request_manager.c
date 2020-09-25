@@ -1171,7 +1171,7 @@ static int process_metaset_rpc(reqmgr_thrd_t* reqmgr,
     unifyfs_metaset_in_t* in = req->input;
     assert(in != NULL);
     int gfid = in->attr.gfid;
-    int create = (int) in->create;
+    int attr_op = (int) in->attr_op;
     unifyfs_file_attr_t fattr = in->attr;
     if (NULL != in->attr.filename) {
         fattr.filename = strdup(in->attr.filename);
@@ -1185,7 +1185,7 @@ static int process_metaset_rpc(reqmgr_thrd_t* reqmgr,
         .app_id = reqmgr->app_id,
         .client_id = reqmgr->client_id,
     };
-    ret = unifyfs_fops_metaset(&ctx, gfid, create, &fattr);
+    ret = unifyfs_fops_metaset(&ctx, gfid, attr_op, &fattr);
     if (ret != UNIFYFS_SUCCESS) {
         LOGERR("unifyfs_fops_metaset() failed");
     }

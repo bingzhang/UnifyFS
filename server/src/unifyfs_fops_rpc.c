@@ -37,13 +37,14 @@ static int rpc_init(unifyfs_cfg_t* cfg)
 static int rpc_metaget(unifyfs_fops_ctx_t* ctx,
                        int gfid, unifyfs_file_attr_t* attr)
 {
-    return unifyfs_inode_metaget(gfid, attr);
+    //return unifyfs_inode_metaget(gfid, attr);
+    return unifyfs_invoke_metaget_rpc(gfid, attr);
 }
 
 static int rpc_metaset(unifyfs_fops_ctx_t* ctx,
-                       int gfid, int create, unifyfs_file_attr_t* attr)
+                       int gfid, int attr_op, unifyfs_file_attr_t* attr)
 {
-    return unifyfs_invoke_metaset_rpc(gfid, create, attr);
+    return unifyfs_invoke_metaset_rpc(gfid, attr_op, attr);
 }
 
 /*
@@ -123,10 +124,9 @@ static int rpc_fsync(unifyfs_fops_ctx_t* ctx, int gfid)
         return ret;
     }
 
-    ret = unifyfs_invoke_broadcast_extents_rpc(gfid, extent_num_entries,
-                                               extents);
+    ret = unifyfs_invoke_add_extents_rpc(gfid, extent_num_entries, extents);
     if (ret) {
-        LOGERR("failed to broadcast extents (gfid=%d, ret=%d)", gfid, ret);
+        LOGERR("failed to add extents (gfid=%d, ret=%d)", gfid, ret);
     }
 
     return ret;

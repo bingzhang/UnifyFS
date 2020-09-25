@@ -30,15 +30,20 @@
 #include <margo.h>
 
 typedef struct ServerRpcIds {
-    hg_id_t server_pid_id;
     hg_id_t chunk_read_request_id;
     hg_id_t chunk_read_response_id;
-    hg_id_t extbcast_request_id;
+    hg_id_t extent_add_id;
+    hg_id_t extent_bcast_id;
+    hg_id_t extent_lookup_id;
     hg_id_t filesize_id;
-    hg_id_t truncate_id;
-    hg_id_t metaset_id;
-    hg_id_t unlink_id;
     hg_id_t laminate_id;
+    hg_id_t metaget_id;
+    hg_id_t metaset_id;
+    hg_id_t fileattr_bcast_id;
+    hg_id_t server_pid_id;
+    hg_id_t truncate_id;
+    hg_id_t truncate_bcast_id;
+    hg_id_t unlink_bcast_id;
 } server_rpcs_t;
 
 typedef struct ServerRpcContext {

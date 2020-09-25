@@ -85,7 +85,7 @@ static int server_pid_invoke_rpc(void)
     return ret;
 }
 
-static void server_pid_handle_rpc(hg_handle_t handle)
+static void server_pid_rpc(hg_handle_t handle)
 {
     int ret = 0;
     hg_return_t hret = 0;
@@ -123,7 +123,7 @@ static void server_pid_handle_rpc(hg_handle_t handle)
         LOGERR("failed to signal condition (%s)", strerror(ret));
     }
 }
-DEFINE_MARGO_RPC_HANDLER(server_pid_handle_rpc);
+DEFINE_MARGO_RPC_HANDLER(server_pid_rpc);
 
 static inline int set_pidfile_timeout(void)
 {

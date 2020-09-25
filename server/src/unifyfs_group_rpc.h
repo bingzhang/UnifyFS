@@ -12,14 +12,16 @@
  * Please read https://github.com/LLNL/UnifyFS/LICENSE for full license text.
  */
 
-#ifndef __UNIFYFS_GROUP_RPC_H
-#define __UNIFYFS_GROUP_RPC_H
+#ifndef _UNIFYFS_GROUP_RPC_H
+#define _UNIFYFS_GROUP_RPC_H
 
 #include "unifyfs_tree.h"
 #include "unifyfs_inode.h"
 
+/* Collective Server RPCs */
+
 /**
- * @brief
+ * @brief Broadcast file extents metadata to all servers
  *
  * @param gfid     target file
  * @param len      length of file extents array
@@ -27,58 +29,41 @@
  *
  * @return success|failure
  */
-int unifyfs_invoke_broadcast_extents_rpc(int gfid,
-                                         unsigned int len,
-                                         struct extent_tree_node* extents);
+int unifyfs_invoke_broadcast_extents(int gfid,
+                                     unsigned int len,
+                                     struct extent_tree_node* extents);
 
 /**
- * @brief
+ * @brief Broadcast file attributes metadata to all servers
  *
  * @param gfid      target file
- * @param filesize  [out] file size
+ * @param fileop    file operation that triggered metadata update
+ * @param attr      file attributes
  *
  * @return success|failure
  */
-int unifyfs_invoke_filesize_rpc(int gfid, size_t* filesize);
+int unifyfs_invoke_broadcast_fileattr(int gfid,
+                                      int fileop,
+                                      unifyfs_file_attr_t* attr);
 
 /**
- * @brief
+ * @brief Truncate target file at all servers
  *
  * @param gfid      target file
- * @param filesize  requested new file size
+ * @param filesize  truncated file size
  *
  * @return success|failure
  */
-int unifyfs_invoke_truncate_rpc(int gfid, size_t filesize);
+int unifyfs_invoke_broadcast_truncate(int gfid, size_t filesize);
 
 /**
- * @brief
- *
- * @param gfid    target file
- * @param create  flag indicating if this is a newly created file
- * @param attr    file attributes to update
- *
- * @return success|failure
- */
-int unifyfs_invoke_metaset_rpc(int gfid, int create,
-                               unifyfs_file_attr_t* attr);
-
-/**
- * @brief
+ * @brief Unlink file at all servers
  *
  * @param gfid  target file
  *
  * @return success|failure
  */
-int unifyfs_invoke_unlink_rpc(int gfid);
+int unifyfs_invoke_broadcast_unlink(int gfid);
 
-/**
- * @brief
- *
- * @param gfid  target file
- *
- * @return success|failure
- */
-int unifyfs_invoke_laminate_rpc(int gfid);
 
-#endif /* __UNIFYFS_GROUP_RPC_H */
+#endif // UNIFYFS_GROUP_RPC_H

@@ -59,7 +59,8 @@ int invoke_client_mount_rpc(void);
 
 int invoke_client_unmount_rpc(void);
 
-int invoke_client_metaset_rpc(int create, unifyfs_file_attr_t* f_meta);
+int invoke_client_metaset_rpc(unifyfs_file_attr_op_e attr_op,
+                              unifyfs_file_attr_t* f_meta);
 
 int invoke_client_metaget_rpc(int gfid, unifyfs_file_attr_t* f_meta);
 

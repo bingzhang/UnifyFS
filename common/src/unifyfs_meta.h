@@ -52,7 +52,6 @@ typedef struct {
     int gfid;
 } unifyfs_extent_t;
 
-
 /* write-log metadata index structure */
 typedef struct {
     off_t file_pos; /* start offset of data in file */
@@ -121,74 +120,103 @@ void debug_print_file_attr(unifyfs_file_attr_t* attr)
            attr->mtime.tv_sec, attr->mtime.tv_nsec);
 }
 
+typedef enum {
+    UNIFYFS_FILE_ATTR_OP_INVALID=0,
+    UNIFYFS_FILE_ATTR_OP_CHGRP,
+    UNIFYFS_FILE_ATTR_OP_CHMOD,
+    UNIFYFS_FILE_ATTR_OP_CHOWN,
+    UNIFYFS_FILE_ATTR_OP_CREATE,
+    UNIFYFS_FILE_ATTR_OP_DATA,
+    UNIFYFS_FILE_ATTR_OP_LAMINATE,
+    UNIFYFS_FILE_ATTR_OP_TRUNCATE
+} unifyfs_file_attr_op_e;
+
 /*
  * updates @dst with new values from @src.
  * ignores fields from @src with negative values.
  */
 static inline
-int unifyfs_file_attr_update(unifyfs_file_attr_t* dst,
+int unifyfs_file_attr_update(int attr_op,
+                             unifyfs_file_attr_t* dst,
                              unifyfs_file_attr_t* src)
 {
-    if (!dst || !src) {
-        return EINVAL;
-    }
-
-    if (dst->gfid != src->gfid) {
+    if (!dst || !src
+        || (attr_op == UNIFYFS_FILE_ATTR_OP_INVALID)
+        || (dst->gfid != src->gfid)) {
         return EINVAL;
     }
 
     LOGDBG("updating attributes for gfid=%d", dst->gfid);
 
-    /* update fields only with >=0 values */
-    if (src->mode >= 0) {
+    /* Update fields only with valid values and associated operation.
+     * invalid values are set by unifyfs_file_attr_set_invalid() above */
+
+    if ((src->mode != -1) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CHMOD) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_LAMINATE))) {
         LOGDBG("setting mode to %o", src->mode);
         dst->mode = src->mode;
     }
 
-    if (src->uid >= 0) {
+    if ((src->uid != -1) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CHOWN) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE))) {
         dst->uid = src->uid;
     }
 
-    if (src->gid >= 0) {
+    if ((src->gid != -1) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CHGRP) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE))) {
         dst->gid = src->gid;
     }
 
-#if 0
-    /* this function is currently used in the server context, when
-     * the server receives attributes from client. the file size should be
-     * maintained by the server, so we skip updating the size.
-     */
-    if (src->size != (uint64_t) -1) {
+    if ((src->size != (uint64_t)-1) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_DATA) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_LAMINATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_TRUNCATE))) {
         LOGDBG("setting attr.size to %" PRIu64, src->size);
         dst->size = src->size;
     }
-#endif
 
-    if (src->atime.tv_sec != 0) {
+    if ((src->atime.tv_sec != 0) &&
+        (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE)) {
         LOGDBG("setting attr.atime to %d.%09ld",
                (int)src->atime.tv_sec, src->atime.tv_nsec);
         dst->atime = src->atime;
     }
 
-    if (src->mtime.tv_sec != 0) {
+    if ((src->mtime.tv_sec != 0) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_DATA) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_LAMINATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_TRUNCATE))) {
         LOGDBG("setting attr.mtime to %d.%09ld",
                (int)src->mtime.tv_sec, src->mtime.tv_nsec);
         dst->mtime = src->mtime;
     }
 
-    if (src->ctime.tv_sec != 0) {
+    if ((src->ctime.tv_sec != 0) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CHGRP) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CHMOD) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CHOWN) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_DATA) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_LAMINATE))) {
         LOGDBG("setting attr.ctime to %d.%09ld",
                (int)src->ctime.tv_sec, src->ctime.tv_nsec);
         dst->ctime = src->ctime;
     }
 
-    if (src->is_laminated >= 0) {
+    if ((src->is_laminated != -1) &&
+        ((attr_op == UNIFYFS_FILE_ATTR_OP_CREATE) ||
+         (attr_op == UNIFYFS_FILE_ATTR_OP_LAMINATE))) {
         LOGDBG("setting attr.is_laminated to %d", src->is_laminated);
         dst->is_laminated = src->is_laminated;
     }
 
-    /* FIXME: is this necessary? */
-    if (src->filename && !strcmp(dst->filename, src->filename)) {
+    if (src->filename && !dst->filename) {
         LOGDBG("setting attr.filename to %s", src->filename);
         dst->filename = strdup(src->filename);
     }

@@ -351,7 +351,8 @@ int invoke_client_unmount_rpc(void)
  *
  * f_meta: The metadata values to update.
  */
-int invoke_client_metaset_rpc(int create, unifyfs_file_attr_t* f_meta)
+int invoke_client_metaset_rpc(unifyfs_file_attr_op_e attr_op,
+                              unifyfs_file_attr_t* f_meta)
 {
     /* check that we have initialized margo */
     if (NULL == client_rpc_context) {
@@ -365,7 +366,7 @@ int invoke_client_metaset_rpc(int create, unifyfs_file_attr_t* f_meta)
     unifyfs_metaset_in_t in;
     in.app_id    = (int32_t) unifyfs_app_id;
     in.client_id = (int32_t) unifyfs_client_id;
-    in.create    = (int32_t) create;
+    in.attr_op   = (int32_t) attr_op;
     memcpy(&(in.attr), f_meta, sizeof(*f_meta));
 
     /* call rpc function */

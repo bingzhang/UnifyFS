@@ -58,7 +58,7 @@ int unifyfs_inode_create(int gfid, unifyfs_file_attr_t* attr);
  *
  * @return 0 on success, errno otherwise
  */
-int unifyfs_inode_update_attr(int gfid, unifyfs_file_attr_t* attr);
+int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr);
 
 /**
  * @brief create a new or update an existing inode.
@@ -70,14 +70,14 @@ int unifyfs_inode_update_attr(int gfid, unifyfs_file_attr_t* attr);
  * @return 0 on success, errno otherwise
  */
 static inline
-int unifyfs_inode_metaset(int gfid, int create, unifyfs_file_attr_t* attr)
+int unifyfs_inode_metaset(int gfid, int attrop, unifyfs_file_attr_t* attr)
 {
     int ret = 0;
 
-    if (create) {
+    if (attrop == UNIFYFS_FILE_ATTR_OP_CREATE) {
         ret = unifyfs_inode_create(gfid, attr);
     } else {
-        ret = unifyfs_inode_update_attr(gfid, attr);
+        ret = unifyfs_inode_update_attr(gfid, attrop, attr);
     }
 
     return ret;

@@ -34,7 +34,7 @@ typedef int (*unifyfs_fops_metaget_t)(unifyfs_fops_ctx_t* ctx,
                                       int gfid, unifyfs_file_attr_t* attr);
 
 typedef int (*unifyfs_fops_metaset_t)(unifyfs_fops_ctx_t* ctx,
-                                      int gfid, int create,
+                                      int gfid, int attr_op,
                                       unifyfs_file_attr_t* attr);
 
 typedef int (*unifyfs_fops_fsync_t)(unifyfs_fops_ctx_t* ctx, int gfid);
@@ -108,14 +108,14 @@ static inline int unifyfs_fops_metaget(unifyfs_fops_ctx_t* ctx,
 }
 
 static inline int unifyfs_fops_metaset(unifyfs_fops_ctx_t* ctx,
-                                       int gfid, int create,
+                                       int gfid, int attr_op,
                                        unifyfs_file_attr_t* attr)
 {
     if (!global_fops_tab->metaset) {
         return ENOSYS;
     }
 
-    return global_fops_tab->metaset(ctx, gfid, create, attr);
+    return global_fops_tab->metaset(ctx, gfid, attr_op, attr);
 }
 
 static inline int unifyfs_fops_fsync(unifyfs_fops_ctx_t* ctx, int gfid)

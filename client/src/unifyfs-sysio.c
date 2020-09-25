@@ -2129,9 +2129,6 @@ static int __chmod(int fid, mode_t mode)
      * get the global file id */
     int gfid = unifyfs_gfid_from_fid(fid);
 
-    /* TODO: need to fetch global metadata in case
-     * another process has changed it */
-
     /*
      * If the chmod clears all the existing write bits, then it's a laminate.
      *
@@ -2143,7 +2140,7 @@ static int __chmod(int fid, mode_t mode)
         /* We're laminating. */
         ret = invoke_client_laminate_rpc(gfid);
         if (ret) {
-            LOGERR("chmod: couldn't get the global file size on laminate");
+            LOGERR("laminate failed");
             errno = unifyfs_rc_errno(ret);
             return -1;
         }
@@ -2154,7 +2151,8 @@ static int __chmod(int fid, mode_t mode)
     meta->mode = meta->mode | mode;
 
     /* update the global meta data to reflect new permissions */
-    ret = unifyfs_set_global_file_meta_from_fid(fid, 0);
+    unifyfs_file_attr_op_e op = UNIFYFS_FILE_ATTR_OP_CHMOD;
+    ret = unifyfs_set_global_file_meta_from_fid(fid, op);
     if (ret) {
         LOGERR("chmod: can't set global meta entry for %s (fid:%d)",
                path, fid);

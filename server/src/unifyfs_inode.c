@@ -121,7 +121,7 @@ int unifyfs_inode_create(int gfid, unifyfs_file_attr_t* attr)
     return ret;
 }
 
-int unifyfs_inode_update_attr(int gfid, unifyfs_file_attr_t* attr)
+int unifyfs_inode_update_attr(int gfid, int attrop, unifyfs_file_attr_t* attr)
 {
     int ret = 0;
     struct unifyfs_inode* ino = NULL;
@@ -140,7 +140,7 @@ int unifyfs_inode_update_attr(int gfid, unifyfs_file_attr_t* attr)
 
         unifyfs_inode_wrlock(ino);
         {
-            unifyfs_file_attr_update(&ino->attr, attr);
+            unifyfs_file_attr_update(attrop, &ino->attr, attr);
         }
         unifyfs_inode_unlock(ino);
     }

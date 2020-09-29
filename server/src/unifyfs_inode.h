@@ -184,7 +184,7 @@ int unifyfs_inode_get_extent_chunks(unifyfs_inode_extent_t* extent,
 int unifyfs_inode_resolve_extent_chunks(unsigned n_extents,
                                         unifyfs_inode_extent_t* extents,
                                         unsigned* n_locs,
-                                        chunk_read_req_t** chunklocs)
+                                        chunk_read_req_t** chunklocs);
 
 /**
  * @brief calls extents_tree_span, which will do:

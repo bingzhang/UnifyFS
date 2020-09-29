@@ -93,6 +93,7 @@ DECLARE_MARGO_RPC_HANDLER(add_extents_rpc)
 
 /* Find file extent locations by querying owner */
 MERCURY_GEN_PROC(find_extents_in_t,
+                 ((int32_t)(src_rank))
                  ((int32_t)(gfid))
                  ((int32_t)(num_extents))
                  ((hg_bulk_t)(extents)))

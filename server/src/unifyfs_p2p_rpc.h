@@ -53,7 +53,7 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
  */
 int unifyfs_invoke_find_extents_rpc(int gfid,
                                     unsigned num_extents,
-                                    unifyfs_extent_t* extents,
+                                    unifyfs_inode_extent_t* extents,
                                     unsigned* num_chunks,
                                     chunk_read_req_t** chunks);
 
@@ -87,7 +87,7 @@ int unifyfs_invoke_laminate_rpc(int gfid);
  * @return success|failure
  */
 int unifyfs_invoke_metaget_rpc(int gfid,
-                               unifyfs_file_attr_t* attr);
+                               unifyfs_file_attr_t* attrs);
 
 /**
  * @brief Update metadata for target file
@@ -99,7 +99,7 @@ int unifyfs_invoke_metaget_rpc(int gfid,
  * @return success|failure
  */
 int unifyfs_invoke_metaset_rpc(int gfid, int attr_op,
-                               unifyfs_file_attr_t* attr);
+                               unifyfs_file_attr_t* attrs);
 
 /**
  * @brief Truncate target file

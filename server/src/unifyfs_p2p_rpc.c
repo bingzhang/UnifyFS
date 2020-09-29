@@ -154,7 +154,7 @@ static void add_extents_rpc(hg_handle_t handle)
                 }
                 margo_bulk_free(bulk_handle);
             }
-            free(extents);
+            free(extents_buf);
         }
         margo_free_input(handle, &in);
     }
@@ -220,7 +220,7 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
     /* get the output of the rpc */
     int ret;
     add_extents_out_t out;
-    hg_return_t hret = margo_get_output(preq.handle, &out);
+    hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_get_output() failed");
         ret = UNIFYFS_ERROR_MARGO;
@@ -301,7 +301,7 @@ static void find_extents_rpc(hg_handle_t handle)
                 }
                 margo_bulk_free(bulk_handle);
             }
-            free(extents);
+            free(extents_buf);
         }
         margo_free_input(handle, &in);
     }
@@ -352,7 +352,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     *num_chunks = 0;
     *chunks = NULL;
 
-    margo_instance_id mid = unifyfsd_rpc_context->svr_mid
+    margo_instance_id mid = unifyfsd_rpc_context->svr_mid;
     p2p_request preq;
     int owner_rank = hash_gfid_to_server(gfid);
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.extent_lookup_id;
@@ -374,6 +374,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
 
     /* fill rpc input struct and forward request */
     find_extents_in_t in;
+    in.src_rank = (int32_t) glb_pmi_rank;
     in.gfid = (int32_t) gfid;
     in.num_extents = (int32_t) num_extents;
     in.extents = bulk_handle;
@@ -392,7 +393,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     /* get the output of the rpc */
     int ret;
     find_extents_out_t out;
-    hg_return_t hret = margo_get_output(preq.handle, &out);
+    hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_get_output() failed");
         ret = UNIFYFS_ERROR_MARGO;
@@ -426,7 +427,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
                         ret = UNIFYFS_ERROR_MARGO;
                     } else {
                         /* lookup requested extents */
-                        LOGDBG("received %zu chunk locations for gfid=%d",
+                        LOGDBG("received %u chunk locations for gfid=%d",
                                n_chks, gfid);
                         *chunks = (chunk_read_req_t*) buf;
                         *num_chunks = (unsigned) n_chks;
@@ -464,7 +465,7 @@ static void metaget_rpc(hg_handle_t handle)
         LOGERR("margo_get_input() failed");
         ret = UNIFYFS_ERROR_MARGO;
     } else {
-        ret = unifyfs_inode_metaget(in.gfid, &attrs)
+        ret = unifyfs_inode_metaget(in.gfid, &attrs);
         margo_free_input(handle, &in);
     }
 
@@ -486,9 +487,9 @@ DEFINE_MARGO_RPC_HANDLER(metaget_rpc)
 
 /* Get file attributes for target file */
 int unifyfs_invoke_metaget_rpc(int gfid,
-                               unifyfs_file_attr_t* attr)
+                               unifyfs_file_attr_t* attrs)
 {
-    if (NULL == attr) {
+    if (NULL == attrs) {
         return EINVAL;
     }
 
@@ -525,9 +526,9 @@ int unifyfs_invoke_metaget_rpc(int gfid,
         /* set return value */
         ret = out.ret;
         if (ret == UNIFYFS_SUCCESS) {
-            *attr = (size_t) out.attr;
+            *attrs = out.attr;
             if (out.attr.filename != NULL) {
-                attr->filename = strdup(out.attr.filename);
+                attrs->filename = strdup(out.attr.filename);
             }
         }
         margo_free_output(preq.handle, &out);
@@ -644,7 +645,7 @@ static void metaset_rpc(hg_handle_t handle)
         LOGERR("margo_get_input() failed");
         ret = UNIFYFS_ERROR_MARGO;
     } else {
-        unifyfs_file_attr_op_e attr_op = in->fileop;
+        unifyfs_file_attr_op_e attr_op = in.fileop;
         ret = unifyfs_inode_metaset(in.gfid, attr_op, &(in.attr));
         margo_free_input(handle, &in);
     }
@@ -667,7 +668,7 @@ DEFINE_MARGO_RPC_HANDLER(metaset_rpc)
 /* Set metadata for target file */
 int unifyfs_invoke_metaset_rpc(int gfid,
                                int attr_op,
-                               unifyfs_file_attr_t* attr)
+                               unifyfs_file_attr_t* attrs)
 {
     if (NULL == attr) {
         return EINVAL;
@@ -685,7 +686,7 @@ int unifyfs_invoke_metaset_rpc(int gfid,
     metaset_in_t in;
     in.gfid = (int32_t) gfid;
     in.fileop = (int32_t) attr_op;
-    in.attr = *attr;
+    in.attr = *attrs;
     rc = forward_request((void*)&in, &preq);
     if (rc != UNIFYFS_SUCCESS) {
         return rc;

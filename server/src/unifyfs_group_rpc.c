@@ -202,7 +202,7 @@ static void extent_bcast_rpc(hg_handle_t handle)
             /* initiate data transfer */
             margo_request bulk_request;
             hret = margo_bulk_itransfer(mid, HG_BULK_PULL, client_address,
-                                        in.exttree, 0,
+                                        in.extents, 0,
                                         extent_data, 0,
                                         buf_size,
                                         &bulk_request);
@@ -212,7 +212,7 @@ static void extent_bcast_rpc(hg_handle_t handle)
             }
 
             /* update input structure to point to local bulk handle */
-            in.exttree = extent_data;
+            in.extents = extent_data;
 
             /* allocate memory for request objects
              * TODO: possibly get this from memory pool */
@@ -345,7 +345,7 @@ int unifyfs_invoke_broadcast_extents_rpc(int gfid, unsigned int len,
         in.root = (int32_t)glb_pmi_rank;
         in.gfid = gfid;
         in.num_extents = num_extents;
-        in.exttree = extent_data;
+        in.extents = extent_data;
 
         extent_bcast_forward(&bcast_tree, &in);
 

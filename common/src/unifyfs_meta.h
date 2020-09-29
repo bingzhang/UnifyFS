@@ -16,6 +16,7 @@
 #define UNIFYFS_META_H
 
 #include <errno.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

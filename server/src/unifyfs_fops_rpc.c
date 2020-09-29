@@ -15,6 +15,7 @@
 #include "unifyfs_inode_tree.h"
 #include "unifyfs_inode.h"
 #include "unifyfs_group_rpc.h"
+#include "unifyfs_p2p_rpc.h"
 #include "unifyfs_request_manager.h"
 
 

@@ -166,18 +166,18 @@ static
 int rpc_unlink(unifyfs_fops_ctx_t* ctx,
                int gfid)
 {
-    return unifyfs_invoke_unlink_rpc(gfid);
+    return unifyfs_invoke_broadcast_unlink(gfid);
 }
 
 static
-int create_remote_read_requests(int n_chunks,
+int create_remote_read_requests(unsigned n_chunks,
                                 chunk_read_req_t* chunks,
-                                int* outlen,
+                                unsigned* outlen,
                                 remote_chunk_reads_t** out)
 {
     int prev_rank = -1;
-    int num_remote_reads = 0;
-    int i = 0;
+    unsigned num_remote_reads = 0;
+    unsigned i = 0;
     remote_chunk_reads_t* remote_reads = NULL;
     remote_chunk_reads_t* current = NULL;
     chunk_read_req_t* pos = NULL;
@@ -236,9 +236,9 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
                         unifyfs_inode_extent_t* extents)
 {
     int ret = UNIFYFS_SUCCESS;
-    int n_chunks = 0;
+    unsigned n_chunks = 0;
     chunk_read_req_t* chunks = NULL;
-    int n_remote_reads = 0;
+    unsigned n_remote_reads = 0;
     remote_chunk_reads_t* remote_reads = NULL;
     server_read_req_t rdreq = { 0, };
 
@@ -278,7 +278,7 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
         rdreq.app_id = app_id;
         rdreq.client_id = client_id;
         rdreq.chunks = chunks;
-        rdreq.num_remote_reads = n_remote_reads;
+        rdreq.num_remote_reads = (int) n_remote_reads;
         rdreq.remote_reads = remote_reads;
 
         ret = rm_submit_read_request(&rdreq);

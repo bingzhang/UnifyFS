@@ -301,7 +301,7 @@ static void find_extents_rpc(hg_handle_t handle)
                                sender, ret);
                     }
                 }
-                margo_bulk_free(bulk_handle);
+                margo_bulk_free(bulk_req_handle);
             }
             free(extents_buf);
         }
@@ -421,7 +421,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
                 } else {
                     /* pull locations array */
                     hret = margo_bulk_transfer(mid, HG_BULK_PULL,
-                                               preq->peer, out.locations, 0,
+                                               preq.peer, out.locations, 0,
                                                bulk_resp_handle, 0,
                                                buf_sz);
                     if (hret != HG_SUCCESS) {

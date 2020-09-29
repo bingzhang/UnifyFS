@@ -16,7 +16,6 @@
 #include "margo_server.h"
 #include "unifyfs_server_rpcs.h"
 #include "unifyfs_p2p_rpc.h"
-#include "unifyfs_inode.h"
 
 /*************************************************************************
  * Peer-to-peer RPC helper methods
@@ -31,6 +30,7 @@ int hash_gfid_to_server(int gfid)
 /* server peer-to-peer (p2p) margo request structure */
 typedef struct {
     margo_request request;
+    hg_addr_t     peer;
     hg_handle_t   handle;
 } p2p_request;
 
@@ -43,10 +43,10 @@ int get_request_handle(hg_id_t request_hgid,
     int rc = UNIFYFS_SUCCESS;
 
     /* get address for specified server rank */
-    hg_addr_t addr = glb_servers[peer_rank].margo_svr_addr;
+    req->peer = glb_servers[peer_rank].margo_svr_addr;
 
     /* get handle to rpc function */
-    hg_return_t hret = margo_create(unifyfsd_rpc_context->svr_mid, addr,
+    hg_return_t hret = margo_create(unifyfsd_rpc_context->svr_mid, req->peer,
                                     request_hgid, &(req->handle));
     if (hret != HG_SUCCESS) {
         LOGERR("failed to get handle for p2p request(%p) to server %d",
@@ -135,9 +135,10 @@ static void add_extents_rpc(hg_handle_t handle)
                 ret = UNIFYFS_ERROR_MARGO;
             } else {
                 /* get list of read requests */
-                hret = margo_bulk_transfer(mid, HG_BULK_PULL, hgi->addr,
-                                           in.extents, 0, bulk_handle,
-                                           0, bulk_sz);
+                hret = margo_bulk_transfer(mid, HG_BULK_PULL,
+                                           hgi->addr, in.extents, 0,
+                                           bulk_handle, 0,
+                                           bulk_sz);
                 if (hret != HG_SUCCESS) {
                     LOGERR("margo_bulk_transfer() failed");
                     ret = UNIFYFS_ERROR_MARGO;
@@ -271,17 +272,18 @@ static void find_extents_rpc(hg_handle_t handle)
             ret = ENOMEM;
         } else {
             /* register local target buffer for bulk access */
-            hg_bulk_t bulk_handle;
+            hg_bulk_t bulk_req_handle;
             hret = margo_bulk_create(mid, 1, &extents_buf, &bulk_sz,
-                                     HG_BULK_WRITE_ONLY, &bulk_handle);
+                                     HG_BULK_WRITE_ONLY, &bulk_req_handle);
             if (hret != HG_SUCCESS) {
                 LOGERR("margo_bulk_create() failed");
                 ret = UNIFYFS_ERROR_MARGO;
             } else {
                 /* get list of read requests */
-                hret = margo_bulk_transfer(mid, HG_BULK_PULL, hgi->addr,
-                                           in.extents, 0, bulk_handle,
-                                           0, bulk_sz);
+                hret = margo_bulk_transfer(mid, HG_BULK_PULL,
+                                           hgi->addr, in.extents, 0,
+                                           bulk_req_handle, 0,
+                                           bulk_sz);
                 if (hret != HG_SUCCESS) {
                     LOGERR("margo_bulk_transfer() failed");
                     ret = UNIFYFS_ERROR_MARGO;
@@ -307,7 +309,7 @@ static void find_extents_rpc(hg_handle_t handle)
     }
 
     /* fill rpc response struct with output values */
-    hg_bulk_t bulk_response_handle;
+    hg_bulk_t bulk_resp_handle;
     find_extents_out_t out;
     out.ret = ret;
     out.num_locations = 0;
@@ -315,13 +317,13 @@ static void find_extents_rpc(hg_handle_t handle)
         void* buf = (void*) chunk_locs;
         size_t buf_sz = (size_t)num_chunks * sizeof(chunk_read_req_t);
         hret = margo_bulk_create(mid, 1, &buf, &buf_sz,
-                                 HG_BULK_READ_ONLY, &bulk_response_handle);
+                                 HG_BULK_READ_ONLY, &bulk_resp_handle);
         if (hret != HG_SUCCESS) {
             LOGERR("margo_bulk_create() failed");
             ret = UNIFYFS_ERROR_MARGO;
         } else {
             out.num_locations = num_chunks;
-            out.locations = bulk_response_handle;
+            out.locations = bulk_resp_handle;
         }
     }
 
@@ -331,7 +333,7 @@ static void find_extents_rpc(hg_handle_t handle)
         LOGERR("margo_respond() failed");
     }
     if (out.num_locations) {
-        margo_bulk_free(bulk_response_handle);
+        margo_bulk_free(bulk_resp_handle);
     }
 
     /* free margo resources */
@@ -362,11 +364,11 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     }
 
     /* create a margo bulk transfer handle for extents array */
-    hg_bulk_t bulk_handle;
+    hg_bulk_t bulk_req_handle;
     void* buf = (void*) extents;
     size_t buf_sz = (size_t)num_extents * sizeof(unifyfs_inode_extent_t);
     hg_return_t hret = margo_bulk_create(mid, 1, &buf, &buf_sz,
-                                         HG_BULK_READ_ONLY, &bulk_handle);
+                                         HG_BULK_READ_ONLY, &bulk_req_handle);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_bulk_create() failed");
         return UNIFYFS_ERROR_MARGO;
@@ -377,12 +379,12 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     in.src_rank = (int32_t) glb_pmi_rank;
     in.gfid = (int32_t) gfid;
     in.num_extents = (int32_t) num_extents;
-    in.extents = bulk_handle;
+    in.extents = bulk_req_handle;
     rc = forward_request((void*)&in, &preq);
     if (rc != UNIFYFS_SUCCESS) {
         return rc;
     }
-    margo_bulk_free(bulk_handle);
+    margo_bulk_free(bulk_req_handle);
 
     /* wait for request completion */
     rc = wait_for_request(&preq);
@@ -410,18 +412,18 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
                 ret = ENOMEM;
             } else {
                 /* create a margo bulk transfer handle for locations array */
-                hg_bulk_t bulk_response_handle;
+                hg_bulk_t bulk_resp_handle;
                 hret = margo_bulk_create(mid, 1, &buf, &buf_sz, HG_BULK_WRITE_ONLY,
-                                         &bulk_response_handle);
+                                         &bulk_resp_handle);
                 if (hret != HG_SUCCESS) {
                     LOGERR("margo_bulk_create() failed");
                     ret = UNIFYFS_ERROR_MARGO;
                 } else {
                     /* pull locations array */
-                    hret = margo_bulk_transfer(mid, HG_BULK_PULL, hgi->addr,
-                                               out.locations, 0,
-                                               bulk_response_handle,
-                                               0, buf_sz);
+                    hret = margo_bulk_transfer(mid, HG_BULK_PULL,
+                                               preq->peer, out.locations, 0,
+                                               bulk_resp_handle, 0,
+                                               buf_sz);
                     if (hret != HG_SUCCESS) {
                         LOGERR("margo_bulk_transfer() failed");
                         ret = UNIFYFS_ERROR_MARGO;
@@ -432,7 +434,7 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
                         *chunks = (chunk_read_req_t*) buf;
                         *num_chunks = (unsigned) n_chks;
                     }
-                    margo_bulk_free(bulk_response_handle);
+                    margo_bulk_free(bulk_resp_handle);
                 }
             }
         }
@@ -670,7 +672,7 @@ int unifyfs_invoke_metaset_rpc(int gfid,
                                int attr_op,
                                unifyfs_file_attr_t* attrs)
 {
-    if (NULL == attr) {
+    if (NULL == attrs) {
         return EINVAL;
     }
 

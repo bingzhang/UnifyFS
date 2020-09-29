@@ -17,6 +17,7 @@
 
 #include "unifyfs_global.h"
 #include "extent_tree.h"
+#include "unifyfs_inode.h"
 
 
 /* Point-to-point Server RPCs */

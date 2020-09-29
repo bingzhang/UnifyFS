@@ -19,6 +19,8 @@ libunifyfsd_a_SOURCES = \
     unifyfs_inode_tree.h \
     unifyfs_inode_tree.c \
     unifyfs_metadata_mdhim.h \
+    unifyfs_p2p_rpc.h \
+    unifyfs_p2p_rpc.c \
     unifyfs_request_manager.c \
     unifyfs_request_manager.h \
     unifyfs_service_manager.c \

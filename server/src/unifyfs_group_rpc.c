@@ -366,7 +366,8 @@ int unifyfs_invoke_broadcast_extents_rpc(int gfid, unsigned int len,
 
 /* Forward the truncate broadcast to all children and wait for responses */
 static
-int truncate_forward(const unifyfs_tree_t* broadcast_tree, truncate_in_t* in)
+int truncate_bcast_forward(const unifyfs_tree_t* broadcast_tree,
+                           truncate_bcast_in_t* in)
 {
     LOGDBG("MARGOTREE: truncate forward - gfid=%d size=%lu",
            (int)in->gfid, (unsigned long)in->filesize);
@@ -427,7 +428,7 @@ int truncate_forward(const unifyfs_tree_t* broadcast_tree, truncate_in_t* in)
             rc = wait_for_request(req);
             if (rc == UNIFYFS_SUCCESS) {
                 /* get the output of the rpc */
-                truncate_out_t out;
+                truncate_bcast_out_t out;
                 hret = margo_get_output(req->handle, &out);
                 if (hret != HG_SUCCESS) {
                     LOGERR("margo_get_output() failed");
@@ -464,7 +465,7 @@ static void truncate_bcast_rpc(hg_handle_t handle)
     int32_t ret = UNIFYFS_SUCCESS;
 
     /* get input params */
-    truncate_in_t in;
+    truncate_bcast_in_t in;
     hg_return_t hret = margo_get_input(handle, &in);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_get_input() failed");
@@ -475,14 +476,14 @@ static void truncate_bcast_rpc(hg_handle_t handle)
         unifyfs_tree_init(glb_pmi_rank, glb_pmi_size, in.root,
                         UNIFYFS_BCAST_K_ARY, &bcast_tree);
 
-        ret = truncate_forward(&bcast_tree, &in);
+        ret = truncate_bcast_forward(&bcast_tree, &in);
 
         unifyfs_tree_free(&bcast_tree);
         margo_free_input(handle, &in);
     }
 
     /* build our output values */
-    truncate_out_t out;
+    truncate_bcast_out_t out;
     out.ret = ret;
 
     /* send output back to caller */
@@ -511,14 +512,14 @@ int unifyfs_invoke_broadcast_truncate(int gfid, size_t filesize)
                       UNIFYFS_BCAST_K_ARY, &bcast_tree);
 
     /* fill in input struct */
-    truncate_in_t in;
+    truncate_bcast_in_t in;
     in.root = (int32_t) glb_pmi_rank;
     in.gfid = gfid;
     in.filesize = filesize;
 
-    ret = truncate_forward(&bcast_tree, &in);
+    ret = truncate_bcast_forward(&bcast_tree, &in);
     if (ret) {
-        LOGERR("truncate_forward failed: (ret=%d)", ret);
+        LOGERR("truncate_bcast_forward failed: (ret=%d)", ret);
     }
 
     unifyfs_tree_free(&bcast_tree);

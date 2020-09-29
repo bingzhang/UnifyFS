@@ -490,6 +490,22 @@ out_unlock_tree:
     return ret;
 }
 
+static
+int compare_chunk_read_reqs(const void* _c1, const void* _c2)
+{
+    chunk_read_req_t* c1 = (chunk_read_req_t*) _c1;
+    chunk_read_req_t* c2 = (chunk_read_req_t*) _c2;
+
+    if (c1->rank > c2->rank) {
+        return 1;
+    } else if (c1->rank < c2->rank) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+
 int unifyfs_inode_resolve_extent_chunks(unsigned n_extents,
                                         unifyfs_inode_extent_t* extents,
                                         unsigned* n_locs,
@@ -554,7 +570,7 @@ int unifyfs_inode_resolve_extent_chunks(unsigned n_extents,
         }
 
         /* sort the requests based on server rank */
-        qsort(chunks, n_chunks, sizeof(*chunks), compare_chunks);
+        qsort(chunks, n_chunks, sizeof(*chunks), compare_chunk_read_reqs);
 
         chunk_read_req_t* chk = chunks;
         for (i = 0; i < n_chunks; i++, chk++) {

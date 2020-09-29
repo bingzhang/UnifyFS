@@ -169,23 +169,6 @@ int rpc_unlink(unifyfs_fops_ctx_t* ctx,
 }
 
 static
-int compare_chunks(const void* _c1, const void* _c2)
-{
-    chunk_read_req_t* c1 = (chunk_read_req_t*) _c1;
-    chunk_read_req_t* c2 = (chunk_read_req_t*) _c2;
-
-    if (c1->rank > c2->rank) {
-        return 1;
-    } else if (c1->rank < c2->rank) {
-        return -1;
-    } else {
-        return 0;
-    }
-}
-
-
-
-static
 int create_remote_read_requests(int n_chunks,
                                 chunk_read_req_t* chunks,
                                 int* outlen,

@@ -16,6 +16,7 @@
 #include "margo_server.h"
 #include "unifyfs_server_rpcs.h"
 #include "unifyfs_p2p_rpc.h"
+#include "unifyfs_group_rpc.h"
 
 /*************************************************************************
  * Peer-to-peer RPC helper methods

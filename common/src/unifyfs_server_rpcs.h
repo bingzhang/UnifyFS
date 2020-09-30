@@ -31,20 +31,6 @@
 extern "C" {
 #endif
 
-typedef enum {
-    UNIFYFS_SERVER_RPC_INVALID = 0,
-    UNIFYFS_SERVER_RPC_ADD_EXTENTS,
-    UNIFYFS_SERVER_RPC_FIND_EXTENTS,
-    UNIFYFS_SERVER_RPC_CHUNKREAD_REQ,
-    UNIFYFS_SERVER_RPC_CHUNKREAD_RESP,
-    UNIFYFS_SERVER_RPC_LAMINATE,
-    UNIFYFS_SERVER_RPC_METAGET,
-    UNIFYFS_SERVER_RPC_METASET,
-    UNIFYFS_SERVER_RPC_PID,
-    UNIFYFS_SERVER_RPC_TRUNCATE,
-    UNIFYFS_SERVER_RPC_UNLINK
-} server_rpc_e;
-
 /*---- Server Point-to-Point (p2p) RPCs ----*/
 
 /* Report server pid to rank 0 */
@@ -164,6 +150,17 @@ MERCURY_GEN_PROC(fileattr_bcast_in_t,
 MERCURY_GEN_PROC(fileattr_bcast_out_t,
                  ((int32_t)(ret)))
 DECLARE_MARGO_RPC_HANDLER(fileattr_bcast_rpc)
+
+/* Broadcast laminated file metadata to all servers */
+MERCURY_GEN_PROC(laminate_bcast_in_t,
+                 ((int32_t)(root))
+                 ((int32_t)(gfid))
+                 ((int32_t)(num_extents))
+                 ((unifyfs_file_attr_t)(attr))
+                 ((hg_bulk_t)(extents)))
+MERCURY_GEN_PROC(laminate_bcast_out_t,
+                 ((int32_t)(ret)))
+DECLARE_MARGO_RPC_HANDLER(laminate_bcast_rpc)
 
 /* Broadcast truncation point to all servers */
 MERCURY_GEN_PROC(truncate_bcast_in_t,

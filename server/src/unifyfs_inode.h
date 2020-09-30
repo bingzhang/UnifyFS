@@ -39,12 +39,11 @@ struct unifyfs_inode {
     RB_ENTRY(unifyfs_inode) inode_tree_entry;
 
     int gfid;                     /* global file identifier */
-    int laminated;                /* is this file laminated? */
     unifyfs_file_attr_t attr;     /* file attributes */
-    pthread_rwlock_t rwlock;      /* rwlock for accessing this structure */
-    ABT_mutex abt_sync;
-
     struct extent_tree* extents;  /* extent information */
+
+    pthread_rwlock_t rwlock;      /* rwlock for pthread access */
+    ABT_mutex abt_sync;           /* mutex for argobots ULT access */
 };
 
 /**

@@ -129,6 +129,11 @@ static void register_server_server_rpcs(margo_instance_id mid)
                        find_extents_in_t, find_extents_out_t,
                        find_extents_rpc);
 
+    unifyfsd_rpc_context->rpcs.fileattr_bcast_id =
+        MARGO_REGISTER(mid, "fileattr_bcast_rpc",
+                       fileattr_bcast_in_t, fileattr_bcast_out_t,
+                       fileattr_bcast_rpc);
+
     unifyfsd_rpc_context->rpcs.filesize_id =
         MARGO_REGISTER(mid, "filesize_rpc",
                        filesize_in_t, filesize_out_t,
@@ -139,6 +144,11 @@ static void register_server_server_rpcs(margo_instance_id mid)
                        laminate_in_t, laminate_out_t,
                        laminate_rpc);
 
+    unifyfsd_rpc_context->rpcs.laminate_bcast_id =
+        MARGO_REGISTER(mid, "laminate_bcast_rpc",
+                       laminate_bcast_in_t, laminate_bcast_out_t,
+                       laminate_bcast_rpc);
+
     unifyfsd_rpc_context->rpcs.metaget_id =
         MARGO_REGISTER(mid, "metaget_rpc",
                        metaget_in_t, metaget_out_t,
@@ -148,11 +158,6 @@ static void register_server_server_rpcs(margo_instance_id mid)
         MARGO_REGISTER(mid, "metaset_rpc",
                        metaset_in_t, metaset_out_t,
                        metaset_rpc);
-
-    unifyfsd_rpc_context->rpcs.fileattr_bcast_id =
-        MARGO_REGISTER(mid, "fileattr_bcast_rpc",
-                       fileattr_bcast_in_t, fileattr_bcast_out_t,
-                       fileattr_bcast_rpc);
 
     unifyfsd_rpc_context->rpcs.truncate_id =
         MARGO_REGISTER(mid, "truncate_rpc",

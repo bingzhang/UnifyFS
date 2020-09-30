@@ -47,6 +47,15 @@ int unifyfs_invoke_broadcast_fileattr(int gfid,
                                       unifyfs_file_attr_t* attr);
 
 /**
+ * @brief Broadcast file attributes and extent metadata to all servers
+ *
+ * @param gfid      target file
+ *
+ * @return success|failure
+ */
+int unifyfs_invoke_broadcast_laminate(int gfid);
+
+/**
  * @brief Truncate target file at all servers
  *
  * @param gfid      target file

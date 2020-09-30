@@ -227,7 +227,7 @@ int unifyfs_inode_truncate(int gfid, unsigned long size)
 
         unifyfs_inode_rdlock(ino);
         {
-            if (ino->laminated) {
+            if (ino->attr.is_laminated) {
                 LOGERR("cannot truncate a laminated file (gfid=%d)", gfid);
                 ret = EINVAL;
                 goto unlock_inode;
@@ -284,7 +284,7 @@ int unifyfs_inode_add_extents(int gfid, int num_extents,
             goto out_unlock_tree;
         }
 
-        if (ino->laminated) {
+        if (ino->attr.is_laminated) {
             LOGERR("trying to add extents to a laminated file (gfid=%d)",
                    gfid);
             ret = EINVAL;
@@ -382,7 +382,6 @@ int unifyfs_inode_laminate(int gfid)
 
         unifyfs_inode_wrlock(ino);
         {
-            ino->laminated = 1;
             ino->attr.is_laminated = 1;
         }
         unifyfs_inode_unlock(ino);

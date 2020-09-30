@@ -735,8 +735,13 @@ static void laminate_rpc(hg_handle_t handle)
         LOGERR("margo_get_input() failed");
         ret = UNIFYFS_ERROR_MARGO;
     } else {
-        ret = unifyfs_inode_laminate(in.gfid);
+        int gfid = (int) in.gfid;
         margo_free_input(handle, &in);
+
+        ret = unifyfs_inode_laminate(gfid);
+        if (ret == UNIFYFS_SUCCESS) {
+            ret = unifyfs_invoke_broadcast_laminate(gfid);
+        }
     }
 
     /* build our output values */
@@ -814,8 +819,13 @@ static void truncate_rpc(hg_handle_t handle)
         LOGERR("margo_get_input() failed");
         ret = UNIFYFS_ERROR_MARGO;
     } else {
-        unsigned long fsize = (unsigned long) in.filesize;
-        ret = unifyfs_inode_truncate(in.gfid, fsize);
+        int gfid = (int) in.gfid;
+        size_t fsize = (size_t) in.filesize;
+        ret = unifyfs_invoke_broadcast_truncate(gfid, fsize);
+        if (ret != UNIFYFS_SUCCESS) {
+            LOGERR("truncate(gfid=%d, size=%zu) broadcast failed",
+                   gfid, fsize);
+        }
         margo_free_input(handle, &in);
     }
 

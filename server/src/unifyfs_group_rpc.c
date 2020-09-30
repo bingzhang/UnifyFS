@@ -335,11 +335,11 @@ int unifyfs_invoke_broadcast_extents_rpc(int gfid, unsigned int len,
 
     /* create bulk data structure containing the extents
      * NOTE: bulk data is always read only at the root of the broadcast tree */
-    hg_bulk_t extent_data;
+    hg_bulk_t extents_bulk;
     void* datap = (void*) extents;
     hg_return_t hret = margo_bulk_create(unifyfsd_rpc_context->svr_mid, 1,
                                          &datap, &buf_size,
-                                         HG_BULK_READ_ONLY, &extent_data);
+                                         HG_BULK_READ_ONLY, &extents_bulk);
     if (hret != HG_SUCCESS) {
         LOGERR("margo_bulk_create() failed");
         ret = UNIFYFS_ERROR_MARGO;
@@ -349,12 +349,12 @@ int unifyfs_invoke_broadcast_extents_rpc(int gfid, unsigned int len,
         in.root = (int32_t)glb_pmi_rank;
         in.gfid = gfid;
         in.num_extents = num_extents;
-        in.extents = extent_data;
+        in.extents = extents_bulk;
 
         extent_bcast_forward(&bcast_tree, &in);
 
         /* free bulk data handle */
-        margo_bulk_free(extent_data);
+        margo_bulk_free(extents_bulk);
     }
 
     /* free tree resources and passed extents */
@@ -528,7 +528,7 @@ static void laminate_bcast_rpc(hg_handle_t handle)
         LOGERR("margo_respond() failed");
     }
 
-    LOGINFO("MARGOTREE: extent bcast rpc handler - responded");
+    LOGINFO("MARGOTREE: laminate bcast handler - responded");
 
     /* free margo resources */
     margo_destroy(handle);
@@ -548,7 +548,7 @@ int laminate_bcast_forward(const unifyfs_tree_t* broadcast_tree,
     }
 
     int gfid = (int) in->gfid;
-    LOGDBG("MARGOTREE: laminate bcast forward for gfid=%d");
+    LOGDBG("MARGOTREE: laminate bcast forward for gfid=%d", gfid);
 
     /* allocate memory for request objects
      * TODO: possibly get this from memory pool */
@@ -655,7 +655,7 @@ int unifyfs_invoke_broadcast_laminate(int gfid)
         unifyfs_tree_free(&bcast_tree);
 
         /* free bulk data handle */
-        margo_bulk_free(extent_data);
+        margo_bulk_free(extents_bulk);
     }
 
     /* free extents array */

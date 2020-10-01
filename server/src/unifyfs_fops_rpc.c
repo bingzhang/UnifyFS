@@ -125,12 +125,14 @@ int rpc_fsync(unifyfs_fops_ctx_t* ctx,
         extent->pos = meta->log_pos;
     }
 
+    /* update local inode state first */
     ret = unifyfs_inode_add_extents(gfid, num_extents, extents);
     if (ret) {
         LOGERR("failed to add extents (gfid=%d, ret=%d)", gfid, ret);
         return ret;
     }
 
+    /* then update owner inode state */
     ret = unifyfs_invoke_add_extents_rpc(gfid, num_extents, extents);
     if (ret) {
         LOGERR("failed to add extents (gfid=%d, ret=%d)", gfid, ret);

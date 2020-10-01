@@ -496,6 +496,19 @@ int unifyfs_invoke_metaget_rpc(int gfid,
         return EINVAL;
     }
 
+    /* initialize invalid attributes */
+    unifyfs_file_attr_set_invalid(attrs);
+
+    /* do local inode metadata lookup to check for laminated */
+    ret = unifyfs_inode_metaget(gfid, attrs);
+    if (ret == UNIFYFS_SUCCESS) {
+        if (attrs->is_laminated) {
+            /* if laminated, we already have final metadata stored locally */
+            return UNIFYFS_SUCCESS;
+        }
+    }
+
+    /* forward request to file owner */
     p2p_request preq;
     int owner_rank = hash_gfid_to_server(gfid);
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.metaget_id;
@@ -588,6 +601,18 @@ int unifyfs_invoke_filesize_rpc(int gfid,
         return EINVAL;
     }
 
+    /* do local inode metadata lookup to check for laminated */
+    unifyfs_file_attr_t attrs;
+    ret = unifyfs_inode_metaget(gfid, &attrs);
+    if (ret == UNIFYFS_SUCCESS) {
+        if (attrs->is_laminated) {
+            /* if laminated, we already have final metadata stored locally */
+            *filesize = (size_t) attrs->size;
+            return UNIFYFS_SUCCESS;
+        }
+    }
+
+    /* forward request to file owner */
     p2p_request preq;
     int owner_rank = hash_gfid_to_server(gfid);
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.filesize_id;

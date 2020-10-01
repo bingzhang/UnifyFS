@@ -237,13 +237,6 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
                         size_t count,
                         unifyfs_inode_extent_t* extents)
 {
-    int ret = UNIFYFS_SUCCESS;
-    unsigned n_chunks = 0;
-    chunk_read_req_t* chunks = NULL;
-    unsigned n_remote_reads = 0;
-    remote_chunk_reads_t* remote_reads = NULL;
-    server_read_req_t rdreq = { 0, };
-
     if ((count == 0) || (NULL == extents)) {
         return EINVAL;
     }
@@ -257,48 +250,60 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
     /* get application client */
     app_client* client = get_app_client(app_id, client_id);
     if (NULL == client) {
-        return (int) UNIFYFS_FAILURE;
+        return UNIFYFS_FAILURE;
     }
 
-    /* resolve chunk locations from inode tree */
-    ret = unifyfs_inode_resolve_extent_chunks((unsigned)count, extents,
-                                              &n_chunks, &chunks);
-    if (ret) {
-        LOGERR("failed to resolve extent locations");
-        goto out_fail;
-    }
-    if (n_chunks > 0) {
-        /* prepare the read request requests */
-        ret = create_remote_read_requests(n_chunks, chunks,
-                                          &n_remote_reads, &remote_reads);
-        if (ret) {
-            LOGERR("failed to prepare the remote read requests");
-            goto out_fail;
+    /* group requested extents by gfid */
+    int ret;
+    int extent_ndx = 0;
+    while (extent_ndx < (int)count) {
+        int curr_ndx = extent_ndx;
+        int curr_gfid = extents[extent_ndx].gfid;
+
+        /* get count of extents for current gfid */
+        unsigned curr_count = 0;
+        while ((curr_ndx < count) && (extents[curr_ndx].gfid == curr_gfid)) {
+            curr_count++;
+            curr_ndx++;
         }
 
-        /* fill the information of server_read_req_t and submit */
-        rdreq.app_id = app_id;
-        rdreq.client_id = client_id;
-        rdreq.chunks = chunks;
-        rdreq.num_remote_reads = (int) n_remote_reads;
-        rdreq.remote_reads = remote_reads;
+        unsigned n_chunks = 0;
+        chunk_read_req_t* chunks = NULL;
+        int rc = unifyfs_invoke_find_extents_rpc(curr_gfid, curr_count,
+                                                 extents + extent_ndx,
+                                                 &n_chunks, &chunks);
+        if (rc) {
+            LOGERR("failed to find extent locations");
+            return rc;
+        }
+        if (n_chunks > 0) {
+            /* prepare the read request requests */
+            unsigned n_remote_reads = 0;
+            remote_chunk_reads_t* remote_reads = NULL;
+            rc = create_remote_read_requests(n_chunks, chunks,
+                                             &n_remote_reads, &remote_reads);
+            if (rc) {
+                LOGERR("failed to prepare the remote read requests");
+                if (NULL != chunks) {
+                    free(chunks);
+                }
+                return rc;
+            }
 
-        ret = rm_submit_read_request(&rdreq);
-    } else {
-        ret = ENODATA;
-    }
-
-out_fail:
-    if (ret != UNIFYFS_SUCCESS) {
-        if (remote_reads) {
-            free(remote_reads);
-            remote_reads = NULL;
+            /* fill the information of server_read_req_t and submit */
+            server_read_req_t rdreq = { 0, };
+            rdreq.app_id = app_id;
+            rdreq.client_id = client_id;
+            rdreq.chunks = chunks;
+            rdreq.num_remote_reads = (int) n_remote_reads;
+            rdreq.remote_reads = remote_reads;
+            ret = rm_submit_read_request(&rdreq);
+        } else {
+            ret = ENODATA;
         }
 
-        if (chunks) {
-            free(chunks);
-            chunks = NULL;
-        }
+        /* advance to next group */
+        extent_ndx += curr_count;
     }
 
     return ret;

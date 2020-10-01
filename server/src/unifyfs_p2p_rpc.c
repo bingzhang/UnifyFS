@@ -181,8 +181,20 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
                                    unsigned num_extents,
                                    struct extent_tree_node* extents)
 {
-    p2p_request preq;
+    int ret;
     int owner_rank = hash_gfid_to_server(gfid);
+    if (owner_rank == glb_pmi_rank) {
+        /* I'm the owner, do local add */
+        ret = unifyfs_inode_add_extents(gfid, num_extents, extents);
+        if (ret) {
+            LOGERR("failed to add extents from %d (ret=%d)",
+                   sender, ret);
+        }
+        return ret;
+    }
+
+    /* forward request to file owner */
+    p2p_request preq;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.extent_add_id;
     int rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -220,7 +232,6 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
     }
 
     /* get the output of the rpc */
-    int ret;
     add_extents_out_t out;
     hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {
@@ -355,9 +366,22 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     *num_chunks = 0;
     *chunks = NULL;
 
-    margo_instance_id mid = unifyfsd_rpc_context->svr_mid;
-    p2p_request preq;
+    int ret;
     int owner_rank = hash_gfid_to_server(gfid);
+    if (owner_rank == glb_pmi_rank) {
+        /* I'm the owner, do local lookup */
+        ret = unifyfs_inode_resolve_extent_chunks((size_t)num_extents, extents,
+                                                  num_chunks, chunks);
+        if (ret) {
+            LOGERR("failed to find extents for gfid=%d (ret=%d)",
+                   gfid, ret);
+        }
+        return ret;
+    }
+
+    /* forward request to file owner */
+    p2p_request preq;
+    margo_instance_id mid = unifyfsd_rpc_context->svr_mid;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.extent_lookup_id;
     int rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -394,7 +418,6 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     }
 
     /* get the output of the rpc */
-    int ret;
     find_extents_out_t out;
     hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {
@@ -496,18 +519,20 @@ int unifyfs_invoke_metaget_rpc(int gfid,
         return EINVAL;
     }
 
+    int owner_rank = hash_gfid_to_server(gfid);
+
     /* do local inode metadata lookup to check for laminated */
     int rc = unifyfs_inode_metaget(gfid, attrs);
-    if (rc == UNIFYFS_SUCCESS) {
-        if (attrs->is_laminated) {
-            /* if laminated, we already have final metadata stored locally */
-            return UNIFYFS_SUCCESS;
-        }
+    if ((rc == UNIFYFS_SUCCESS) && (attrs->is_laminated)) {
+        /* if laminated or owner, we already have metadata locally */
+        return UNIFYFS_SUCCESS;
+    }
+    if (owner_rank == glb_pmi_rank) {
+        return rc;
     }
 
     /* forward request to file owner */
     p2p_request preq;
-    int owner_rank = hash_gfid_to_server(gfid);
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.metaget_id;
     rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -598,20 +623,22 @@ int unifyfs_invoke_filesize_rpc(int gfid,
         return EINVAL;
     }
 
+    int owner_rank = hash_gfid_to_server(gfid);
+
     /* do local inode metadata lookup to check for laminated */
     unifyfs_file_attr_t attrs;
     int rc = unifyfs_inode_metaget(gfid, &attrs);
-    if (rc == UNIFYFS_SUCCESS) {
-        if (attrs.is_laminated) {
-            /* if laminated, we already have final metadata stored locally */
-            *filesize = (size_t) attrs.size;
-            return UNIFYFS_SUCCESS;
-        }
+    if ((rc == UNIFYFS_SUCCESS) && (attrs.is_laminated)) {
+        /* if laminated, we already have final metadata stored locally */
+        *filesize = (size_t) attrs.size;
+        return UNIFYFS_SUCCESS;
+    }
+    if (owner_rank == glb_pmi_rank) {
+        return rc;
     }
 
     /* forward request to file owner */
     p2p_request preq;
-    int owner_rank = hash_gfid_to_server(gfid);
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.filesize_id;
     rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -699,8 +726,14 @@ int unifyfs_invoke_metaset_rpc(int gfid,
         return EINVAL;
     }
 
-    p2p_request preq;
     int owner_rank = hash_gfid_to_server(gfid);
+    if (owner_rank == glb_pmi_rank) {
+        /* I'm the owner, do local inode metadata update */
+        return unifyfs_inode_metaset(gfid, attr_op, attrs);
+    }
+
+    /* forward request to file owner */
+    p2p_request preq;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.metaset_id;
     int rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -768,6 +801,7 @@ static void laminate_rpc(hg_handle_t handle)
 
         ret = unifyfs_inode_laminate(gfid);
         if (ret == UNIFYFS_SUCCESS) {
+            /* tell the rest of the servers */
             ret = unifyfs_invoke_broadcast_laminate(gfid);
         }
     }
@@ -790,8 +824,20 @@ DEFINE_MARGO_RPC_HANDLER(laminate_rpc)
 /*  Laminate the target file */
 int unifyfs_invoke_laminate_rpc(int gfid)
 {
-    p2p_request preq;
+    int ret;
     int owner_rank = hash_gfid_to_server(gfid);
+    if (owner_rank == glb_pmi_rank) {
+        /* I'm the owner, do local inode metadata update */
+        ret = unifyfs_inode_laminate(gfid);
+        if (ret == UNIFYFS_SUCCESS) {
+            /* tell the rest of the servers */
+            ret = unifyfs_invoke_broadcast_laminate(gfid);
+        }
+        return ret;
+    }
+
+    /* forward request to file owner */
+    p2p_request preq;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.laminate_id;
     int rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {
@@ -813,7 +859,6 @@ int unifyfs_invoke_laminate_rpc(int gfid)
     }
 
     /* get the output of the rpc */
-    int ret;
     laminate_out_t out;
     hg_return_t hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {
@@ -876,8 +921,15 @@ DEFINE_MARGO_RPC_HANDLER(truncate_rpc)
 int unifyfs_invoke_truncate_rpc(int gfid,
                                 size_t filesize)
 {
-    p2p_request preq;
     int owner_rank = hash_gfid_to_server(gfid);
+    if (owner_rank == glb_pmi_rank) {
+        /* I'm the owner, start broadcast update. The local inode will be
+         * updated as part of this update. */
+        return unifyfs_invoke_broadcast_truncate(gfid, filesize);
+    }
+
+    /* forward request to file owner */
+    p2p_request preq;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.truncate_id;
     int rc = get_request_handle(req_hgid, owner_rank, &preq);
     if (rc != UNIFYFS_SUCCESS) {

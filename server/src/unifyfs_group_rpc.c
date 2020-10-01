@@ -577,7 +577,7 @@ int laminate_bcast_forward(const unifyfs_tree_t* broadcast_tree,
         req = requests + i;
         rc = wait_for_request(req);
         if (rc == UNIFYFS_SUCCESS) {
-            LOGINFO("MARGOTREE: extent bcast forward - got child[%d] response", i);
+            LOGINFO("MARGOTREE: laminate bcast forward - got child[%d] response", i);
             /* get the output of the rpc */
             laminate_bcast_out_t out;
             hg_return_t hret = margo_get_output(req->handle, &out);

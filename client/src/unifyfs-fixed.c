@@ -255,10 +255,12 @@ int unifyfs_sync(int target_fid)
     off_t logio_shmem_size;
     unifyfs_logio_get_sizes(logio_ctx, &logio_shmem_size, NULL);
     if (max_log_offset >= logio_shmem_size) {
+        LOGDBG("before logio spill sync")
         ret = unifyfs_logio_sync(logio_ctx);
         if (ret != UNIFYFS_SUCCESS) {
             LOGERR("failed to sync logio data");
         }
+        LOGDBG("after logio spill sync");
     }
 
     return ret;

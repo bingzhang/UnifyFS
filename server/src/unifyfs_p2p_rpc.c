@@ -183,8 +183,8 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
 {
     int owner_rank = hash_gfid_to_server(gfid);
     if (owner_rank == glb_pmi_rank) {
-        /* I'm the owner, do local add */
-        return unifyfs_inode_add_extents(gfid, num_extents, extents);
+        /* I'm the owner, already did local add */
+        return UNIFYFS_SUCCESS;
     }
 
     /* forward request to file owner */

@@ -602,9 +602,9 @@ int unifyfs_invoke_filesize_rpc(int gfid,
     unifyfs_file_attr_t attrs;
     int rc = unifyfs_inode_metaget(gfid, &attrs);
     if (rc == UNIFYFS_SUCCESS) {
-        if (attrs->is_laminated) {
+        if (attrs.is_laminated) {
             /* if laminated, we already have final metadata stored locally */
-            *filesize = (size_t) attrs->size;
+            *filesize = (size_t) attrs.size;
             return UNIFYFS_SUCCESS;
         }
     }

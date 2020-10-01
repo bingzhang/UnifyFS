@@ -712,6 +712,11 @@ int unifyfs_invoke_metaset_rpc(int gfid,
         /* set return value */
         ret = out.ret;
         margo_free_output(preq.handle, &out);
+
+        /* if update at owner succeeded, do it locally */
+        if (ret == UNIFYFS_SUCCESS) {
+            ret = unifyfs_inode_metaset(gfid, attr_op, attrs);
+        }
     }
     margo_destroy(preq.handle);
 

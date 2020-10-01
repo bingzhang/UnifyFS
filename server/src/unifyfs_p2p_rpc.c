@@ -181,16 +181,10 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
                                    unsigned num_extents,
                                    struct extent_tree_node* extents)
 {
-    int ret;
     int owner_rank = hash_gfid_to_server(gfid);
     if (owner_rank == glb_pmi_rank) {
         /* I'm the owner, do local add */
-        ret = unifyfs_inode_add_extents(gfid, num_extents, extents);
-        if (ret) {
-            LOGERR("failed to add extents from %d (ret=%d)",
-                   sender, ret);
-        }
-        return ret;
+        return unifyfs_inode_add_extents(gfid, num_extents, extents);
     }
 
     /* forward request to file owner */
@@ -232,6 +226,7 @@ int unifyfs_invoke_add_extents_rpc(int gfid,
     }
 
     /* get the output of the rpc */
+    int ret;
     add_extents_out_t out;
     hret = margo_get_output(preq.handle, &out);
     if (hret != HG_SUCCESS) {

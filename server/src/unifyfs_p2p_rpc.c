@@ -519,7 +519,7 @@ int unifyfs_invoke_metaget_rpc(int gfid,
     /* do local inode metadata lookup to check for laminated */
     int rc = unifyfs_inode_metaget(gfid, attrs);
     if ((rc == UNIFYFS_SUCCESS) && (attrs->is_laminated)) {
-        /* if laminated or owner, we already have metadata locally */
+        /* if laminated, we already have final metadata locally */
         return UNIFYFS_SUCCESS;
     }
     if (owner_rank == glb_pmi_rank) {

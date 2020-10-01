@@ -254,7 +254,7 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
     }
 
     /* group requested extents by gfid */
-    int ret;
+    int ret = UNIFYFS_SUCCESS;
     int extent_ndx = 0;
     while (extent_ndx < (int)count) {
         int curr_ndx = extent_ndx;

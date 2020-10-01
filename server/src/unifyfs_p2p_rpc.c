@@ -367,14 +367,14 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     unifyfs_file_attr_t attrs;
     int ret = unifyfs_inode_metaget(gfid, &attrs);
     if (ret == UNIFYFS_SUCCESS) {
-        if (attrs->is_laminated || (owner_rank == glb_pmi_rank)) {
+        if (attrs.is_laminated || (owner_rank == glb_pmi_rank)) {
             /* do local lookup */
             ret = unifyfs_inode_resolve_extent_chunks((size_t)num_extents,
                                                       extents,
                                                       num_chunks, chunks);
             if (ret) {
                 LOGERR("failed to find extents for gfid=%d (ret=%d)",
-                    gfid, ret);
+                       gfid, ret);
             }
             return ret;
         }

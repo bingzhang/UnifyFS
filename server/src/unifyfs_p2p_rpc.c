@@ -361,17 +361,23 @@ int unifyfs_invoke_find_extents_rpc(int gfid,
     *num_chunks = 0;
     *chunks = NULL;
 
-    int ret;
     int owner_rank = hash_gfid_to_server(gfid);
-    if (owner_rank == glb_pmi_rank) {
-        /* I'm the owner, do local lookup */
-        ret = unifyfs_inode_resolve_extent_chunks((size_t)num_extents, extents,
-                                                  num_chunks, chunks);
-        if (ret) {
-            LOGERR("failed to find extents for gfid=%d (ret=%d)",
-                   gfid, ret);
+
+    /* do local inode metadata lookup to check for laminated */
+    unifyfs_file_attr_t attrs;
+    int ret = unifyfs_inode_metaget(gfid, &attrs);
+    if (ret == UNIFYFS_SUCCESS) {
+        if (attrs->is_laminated || (owner_rank == glb_pmi_rank)) {
+            /* do local lookup */
+            ret = unifyfs_inode_resolve_extent_chunks((size_t)num_extents,
+                                                      extents,
+                                                      num_chunks, chunks);
+            if (ret) {
+                LOGERR("failed to find extents for gfid=%d (ret=%d)",
+                    gfid, ret);
+            }
+            return ret;
         }
-        return ret;
     }
 
     /* forward request to file owner */

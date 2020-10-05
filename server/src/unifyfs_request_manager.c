@@ -1425,7 +1425,7 @@ void* request_manager_thread(void* arg)
         /* process any chunk read responses */
         rc = rm_process_client_requests(thrd_ctrl);
         if (rc != UNIFYFS_SUCCESS) {
-            LOGERR("failed to process remote client rpc requests");
+            LOGERR("failed to process client rpc requests");
         }
 
         /* process any chunk read responses */

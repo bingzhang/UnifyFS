@@ -532,6 +532,12 @@ int unifyfs_invoke_metaget_rpc(int gfid,
         return rc;
     }
 
+    int need_local_metadata = 0;
+    if (rc == ENOENT) {
+        /* inode_metaget above failed with ENOENT, need to create inode */
+        need_local_metadata = 1;
+    }
+
     /* forward request to file owner */
     p2p_request preq;
     hg_id_t req_hgid = unifyfsd_rpc_context->rpcs.metaget_id;
@@ -568,6 +574,10 @@ int unifyfs_invoke_metaget_rpc(int gfid,
             *attrs = out.attr;
             if (out.attr.filename != NULL) {
                 attrs->filename = strdup(out.attr.filename);
+            }
+            if (need_local_metadata) {
+                unifyfs_inode_metaset(gfid, UNIFYFS_FILE_ATTR_OP_CREATE,
+                                      attrs);
             }
         }
         margo_free_output(preq.handle, &out);

@@ -215,10 +215,12 @@ int create_remote_read_requests(unsigned n_chunks,
         current->rank = rank;
         current->reqs = pos;
 
-        for ( ; pos->rank == rank && processed < n_chunks; pos++) {
+        for ( ; processed < n_chunks; pos++) {
+            if (pos->rank != rank) {
+                break;
+            }
             current->total_sz += pos->nbytes;
-
-            current->num_chunks += 1;
+            current->num_chunks++;
             processed++;
         }
 

@@ -50,6 +50,6 @@ int sm_issue_chunk_reads(int src_rank,
                          char* msg_buf);
 
 /* MARGO SERVER-SERVER RPC INVOCATION FUNCTIONS */
-int invoke_chunk_read_response_rpc(remote_chunk_reads_t* rcr);
+int invoke_chunk_read_response_rpc(server_chunk_reads_t* scr);
 
 #endif // UNIFYFS_SERVICE_MANAGER_H

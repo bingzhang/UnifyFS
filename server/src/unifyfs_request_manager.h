@@ -43,13 +43,13 @@ typedef struct {
 
 typedef struct {
     readreq_status_e status;   /* aggregate request status */
+    int in_use;                /* currently using this req? */
     int req_ndx;               /* index in reqmgr read_reqs array */
     int app_id;                /* app id of requesting client process */
     int client_id;             /* client id of requesting client process */
-    int num_remote_reads;      /* size of remote_reads array */
-    int in_use;                /* occupied by a thread */
+    int num_server_reads;      /* size of remote_reads array */
     chunk_read_req_t* chunks;  /* array of chunk-reads */
-    remote_chunk_reads_t* remote_reads; /* per-delegator remote reads array */
+    server_chunk_reads_t* remote_reads; /* per-server remote reads array */
 } server_read_req_t;
 
 /* Request manager state structure - created by main thread for each request
@@ -137,7 +137,7 @@ int rm_post_chunk_read_responses(int app_id,
 /* process the requested chunk data returned from service managers */
 int rm_handle_chunk_read_responses(reqmgr_thrd_t* thrd_ctrl,
                                    server_read_req_t* rdreq,
-                                   remote_chunk_reads_t* del_reads);
+                                   server_chunk_reads_t* del_reads);
 
 /**
  * @brief hand over a read request to the request manager thread.

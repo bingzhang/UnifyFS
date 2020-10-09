@@ -49,7 +49,7 @@ typedef struct {
     /* thread return status code */
     int sm_exit_rc;
 
-    /* list of chunk read requests from remote delegators */
+    /* list of chunk read requests from remote servers */
     arraylist_t* chunk_reads;
 
 } svcmgr_state_t;
@@ -74,10 +74,10 @@ do { \
  * data for each request and construct a set of read replies
  * that will be sent back to the request manager.
  *
- * @param src_rank      : source delegator rank
- * @param src_app_id    : app id at source delegator
- * @param src_client_id : client id at source delegator
- * @param src_req_id    : request id at source delegator
+ * @param src_rank      : source server rank
+ * @param src_app_id    : app id at source server
+ * @param src_client_id : client id at source server
+ * @param src_req_id    : request id at source server
  * @param num_chks      : number of chunk requests
  * @param msg_buf       : message buffer containing request(s)
  * @return success/error code
@@ -129,22 +129,22 @@ int sm_issue_chunk_reads(int src_rank,
     char* databuf = crbuf + resp_sz;
 
     /* allocate a struct for the chunk read request */
-    remote_chunk_reads_t* rcr = (remote_chunk_reads_t*)
-        calloc(1, sizeof(remote_chunk_reads_t));
-    if (NULL == rcr) {
+    server_chunk_reads_t* scr = (server_chunk_reads_t*)
+        calloc(1, sizeof(server_chunk_reads_t));
+    if (NULL == scr) {
         LOGERR("failed to allocate remote_chunk_reads");
         return ENOMEM;
     }
 
     /* fill in chunk read request */
-    rcr->rank       = src_rank;
-    rcr->app_id     = src_app_id;
-    rcr->client_id  = src_client_id;
-    rcr->rdreq_id   = src_req_id;
-    rcr->num_chunks = num_chks;
-    rcr->reqs       = NULL;
-    rcr->total_sz   = buf_sz;
-    rcr->resp       = resp;
+    scr->rank       = src_rank;
+    scr->app_id     = src_app_id;
+    scr->client_id  = src_client_id;
+    scr->rdreq_id   = src_req_id;
+    scr->num_chunks = num_chks;
+    scr->reqs       = NULL;
+    scr->total_sz   = buf_sz;
+    scr->resp       = resp;
 
     LOGDBG("issuing %d requests, total data size = %zu",
            num_chks, total_data_sz);
@@ -211,10 +211,10 @@ int sm_issue_chunk_reads(int src_rank,
         assert(NULL != sm);
 
         SM_LOCK();
-        arraylist_add(sm->chunk_reads, rcr);
+        arraylist_add(sm->chunk_reads, scr);
         SM_UNLOCK();
 
-        /* rcr will be freed later by the sending thread */
+        /* scr will be freed later by the sending thread */
 
         LOGDBG("done adding to svcmgr chunk_reads");
         return UNIFYFS_SUCCESS;
@@ -229,7 +229,7 @@ int sm_issue_chunk_reads(int src_rank,
         }
 
         /* clean up allocated buffers */
-        free(rcr);
+        free(scr);
 
         return rc;
     }
@@ -325,10 +325,10 @@ static int send_chunk_read_responses(void)
     /* iterate over each chunk read request */
     for (int i = 0; i < num_chunk_reads; i++) {
         /* get next chunk read request */
-        remote_chunk_reads_t* rcr = (remote_chunk_reads_t*)
+        server_chunk_reads_t* scr = (server_chunk_reads_t*)
             arraylist_get(chunk_reads, i);
 
-        rc = invoke_chunk_read_response_rpc(rcr);
+        rc = invoke_chunk_read_response_rpc(scr);
     }
 
     /* free the list if we have one */
@@ -380,13 +380,13 @@ void* service_manager_thread(void* arg)
  * reply headers and corresponding data back to a server that
  * had requested we read data on its behalf, the headers and
  * data are posted as a bulk transfer buffer */
-int invoke_chunk_read_response_rpc(remote_chunk_reads_t* rcr)
+int invoke_chunk_read_response_rpc(server_chunk_reads_t* scr)
 {
     /* assume we'll succeed */
     int rc = UNIFYFS_SUCCESS;
 
     /* rank of destination server */
-    int dst_rank = rcr->rank;
+    int dst_rank = scr->rank;
     assert(dst_rank < (int)glb_num_servers);
 
     /* get address of destinaton server */
@@ -407,8 +407,8 @@ int invoke_chunk_read_response_rpc(remote_chunk_reads_t* rcr)
     }
 
     /* get address and size of our response buffer */
-    void* data_buf    = (void*)rcr->resp;
-    hg_size_t bulk_sz = rcr->total_sz;
+    void* data_buf    = (void*)scr->resp;
+    hg_size_t bulk_sz = scr->total_sz;
 
     /* register our response buffer for bulk remote read access */
     chunk_read_response_in_t in;
@@ -421,10 +421,10 @@ int invoke_chunk_read_response_rpc(remote_chunk_reads_t* rcr)
 
     /* fill in input struct */
     in.src_rank  = (int32_t)glb_pmi_rank;
-    in.app_id    = (int32_t)rcr->app_id;
-    in.client_id = (int32_t)rcr->client_id;
-    in.req_id    = (int32_t)rcr->rdreq_id;
-    in.num_chks  = (int32_t)rcr->num_chunks;
+    in.app_id    = (int32_t)scr->app_id;
+    in.client_id = (int32_t)scr->client_id;
+    in.req_id    = (int32_t)scr->rdreq_id;
+    in.num_chks  = (int32_t)scr->num_chunks;
     in.bulk_size = bulk_sz;
 
     /* call the read response rpc */
@@ -454,7 +454,7 @@ int invoke_chunk_read_response_rpc(remote_chunk_reads_t* rcr)
 
     /* free response data buffer */
     free(data_buf);
-    rcr->resp = NULL;
+    scr->resp = NULL;
 
     return rc;
 }
@@ -482,8 +482,8 @@ static void chunk_read_request_rpc(hg_handle_t handle)
         size_t bulk_sz = (size_t)in.bulk_size;
 
         LOGDBG("handling chunk read request from server %d: "
-            "req=%d num_chunks=%d bulk_sz=%zu",
-            src_rank, req_id, num_chks, bulk_sz);
+               "req=%d num_chunks=%d bulk_sz=%zu",
+               src_rank, req_id, num_chks, bulk_sz);
 
         /* get margo info */
         const struct hg_info* hgi = margo_get_info(handle);

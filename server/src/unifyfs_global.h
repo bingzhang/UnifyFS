@@ -110,7 +110,7 @@ typedef struct {
 } chunk_read_resp_t;
 
 typedef struct {
-    int rank;                /* remote delegator rank */
+    int rank;                /* server rank */
     int rdreq_id;            /* read-request id */
     int app_id;              /* app id of requesting client process */
     int client_id;           /* client id of requesting client process */
@@ -121,7 +121,7 @@ typedef struct {
                               * @SM: received requests buffer */
     chunk_read_resp_t* resp; /* @RM: received responses buffer
                               * @SM: allocated responses buffer */
-} remote_chunk_reads_t;
+} server_chunk_reads_t;
 
 typedef struct {
     size_t length;  /* length of data to read */

@@ -175,27 +175,27 @@ static
 int create_remote_read_requests(unsigned n_chunks,
                                 chunk_read_req_t* chunks,
                                 unsigned* outlen,
-                                remote_chunk_reads_t** out)
+                                server_chunk_reads_t** out)
 {
     int prev_rank = -1;
-    unsigned num_remote_reads = 0;
+    unsigned num_server_reads = 0;
     unsigned i = 0;
-    remote_chunk_reads_t* remote_reads = NULL;
-    remote_chunk_reads_t* current = NULL;
+    server_chunk_reads_t* remote_reads = NULL;
+    server_chunk_reads_t* current = NULL;
     chunk_read_req_t* pos = NULL;
 
-    /* count how many delegators we need to contact */
+    /* count how many servers we need to contact */
     for (i = 0; i < n_chunks; i++) {
         chunk_read_req_t* curr_chunk = &chunks[i];
         int curr_rank = curr_chunk->rank;
         if (curr_rank != prev_rank) {
-            num_remote_reads++;
+            num_server_reads++;
         }
         prev_rank = curr_rank;
     }
 
-    /* allocate and fill the per-delegator request data structure */
-    remote_reads = (remote_chunk_reads_t*) calloc(num_remote_reads,
+    /* allocate and fill the per-server request data structure */
+    remote_reads = (server_chunk_reads_t*) calloc(num_server_reads,
                                                   sizeof(*remote_reads));
     if (!remote_reads) {
         LOGERR("failed to allocate memory for remote_reads");
@@ -205,10 +205,10 @@ int create_remote_read_requests(unsigned n_chunks,
     pos = chunks;
     unsigned int processed = 0;
 
-    LOGDBG("preparing remote read request for %u chunks (%d delegators)",
-           n_chunks, num_remote_reads);
+    LOGDBG("preparing remote read request for %u chunks (%d servers)",
+           n_chunks, num_server_reads);
 
-    for (i = 0; i < num_remote_reads; i++) {
+    for (i = 0; i < num_server_reads; i++) {
         int rank = pos->rank;
 
         current = &remote_reads[i];
@@ -224,12 +224,12 @@ int create_remote_read_requests(unsigned n_chunks,
             processed++;
         }
 
-        LOGDBG("%u/%u chunks processed: delegator %d (%u chunks, %zu bytes)",
-               processed, n_chunks,
-               rank, current->num_chunks, current->total_sz);
+        LOGDBG("%u/%u chunks processed: server %d (%u chunks, %zu bytes)",
+               processed, n_chunks, rank,
+               current->num_chunks, current->total_sz);
     }
 
-    *outlen = num_remote_reads;
+    *outlen = num_server_reads;
     *out = remote_reads;
     return UNIFYFS_SUCCESS;
 }
@@ -281,7 +281,7 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
         if (n_chunks > 0) {
             /* prepare the read request requests */
             unsigned n_remote_reads = 0;
-            remote_chunk_reads_t* remote_reads = NULL;
+            server_chunk_reads_t* remote_reads = NULL;
             rc = create_remote_read_requests(n_chunks, chunks,
                                              &n_remote_reads, &remote_reads);
             if (rc) {
@@ -297,7 +297,7 @@ int submit_read_request(unifyfs_fops_ctx_t* ctx,
             rdreq.app_id = app_id;
             rdreq.client_id = client_id;
             rdreq.chunks = chunks;
-            rdreq.num_remote_reads = (int) n_remote_reads;
+            rdreq.num_server_reads = (int) n_remote_reads;
             rdreq.remote_reads = remote_reads;
             ret = rm_submit_read_request(&rdreq);
         } else {

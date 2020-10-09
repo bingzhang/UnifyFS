@@ -27,8 +27,6 @@
  * Please read https://github.com/llnl/burstfs/LICENSE for full license text.
  */
 
-
-
 // general support
 #include "unifyfs_global.h"
 
@@ -72,38 +70,27 @@ do { \
 
 arraylist_t* rm_thrd_list;
 
-/* One request manager thread is created for each client that a
- * server serves.  The margo rpc handler thread(s) assign work
- * to the request manager thread to retrieve data and send
- * it back to the client.
+/* One request manager thread is created for each client of the
+ * server. The margo rpc handler thread(s) assign work to the
+ * request manager thread to handle data and metadata operations.
  *
- * To start, given a read request from the client (via rpc)
- * the handler function on the main server first queries the
- * key/value store using the given file id and byte range to obtain
- * the meta data on the physical location of the file data.  This
- * meta data provides the host server rank, the app/client
- * ids that specify the log file on the remote server, the
- * offset within the log file and the length of data.  The rpc
- * handler function sorts the meta data by host server rank,
- * generates read requests, and inserts those into a list on a
- * data structure shared with the request manager (del_req_set).
- *
- * The request manager thread coordinates with the main thread
+ * The request manager thread coordinates with other threads
  * using a lock and a condition variable to protect the shared data
- * structure and impose flow control.  When assigned work, the
- * request manager thread packs and sends request messages to
- * service manager threads on remote delegators via MPI send.
- * It waits for data to be sent back, and unpacks the read replies
- * in each message into a shared memory buffer for the client.
- * When the shared memory is full or all data has been received,
- * it signals the client process to process the read replies.
- * It iterates with the client until all incoming read replies
- * have been transferred. */
-/* create a request manager thread for the given app_id
- * and client_id, returns pointer to thread control structure
- * on success and NULL on failure */
+ * structure and impose flow control. When assigned work, the
+ * request manager thread either handles the request directly, or
+ * forwards requests to remote servers.
+ * 
+ * For read requests, the request manager waits for data chunk
+ * responses and places the data into a shared memory data buffer
+ * specific to the client. When the shared memory is full or all
+ * data has been received, the request manager signals the client
+ * to process the read replies. It iterates with the client until
+ * all incoming read replies have been transferred. */
 
-/* Create Request Manager thread for application client */
+/* Create a request manager thread for the application client
+ * corresponding to the given app_id and client_id.
+ * Returns pointer to thread control structure on success, or
+ * NULL on failure */
 reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id, int client_id)
 {
     /* allocate a new thread control structure */
@@ -184,7 +171,7 @@ static void debug_print_read_req(server_read_req_t* req)
 {
     if (NULL != req) {
         LOGDBG("server_read_req[%d] status=%d, num_remote=%d",
-               req->req_ndx, req->status, req->num_remote_reads);
+               req->req_ndx, req->status, req->num_server_reads);
     }
 }
 
@@ -313,7 +300,7 @@ int rm_create_chunk_requests(reqmgr_thrd_t* thrd_ctrl,
     rdreq->chunks = all_chunk_reads;
 
     /* iterate over write index values and create read requests
-     * for each one, also count up number of delegators that we'll
+     * for each one, also count up number of servers that we'll
      * forward read requests to */
     int i;
     int prev_del = -1;
@@ -344,16 +331,16 @@ int rm_create_chunk_requests(reqmgr_thrd_t* thrd_ctrl,
 
     /* allocate per-delgator chunk-reads */
     int num_dels = num_del;
-    rdreq->num_remote_reads = num_dels;
-    rdreq->remote_reads = (remote_chunk_reads_t*)
-        calloc((size_t)num_dels, sizeof(remote_chunk_reads_t));
+    rdreq->num_server_reads = num_dels;
+    rdreq->remote_reads = (server_chunk_reads_t*)
+        calloc((size_t)num_dels, sizeof(server_chunk_reads_t));
     if (NULL == rdreq->remote_reads) {
         LOGERR("failed to allocate remote-reads array");
         return ENOMEM;
     }
 
     /* get pointer to start of chunk read request array */
-    remote_chunk_reads_t* reads = rdreq->remote_reads;
+    server_chunk_reads_t* reads = rdreq->remote_reads;
 
     /* iterate over write index values again and now create
      * per-server chunk-reads info, for each server
@@ -443,12 +430,12 @@ int rm_submit_read_request(server_read_req_t* req)
 
     rdreq->app_id = req->app_id;
     rdreq->client_id = req->client_id;
-    rdreq->num_remote_reads = req->num_remote_reads;
+    rdreq->num_server_reads = req->num_server_reads;
     rdreq->chunks = req->chunks;
     rdreq->remote_reads = req->remote_reads;
 
-    for (i = 0; i < rdreq->num_remote_reads; i++) {
-        remote_chunk_reads_t* read = &rdreq->remote_reads[i];
+    for (i = 0; i < rdreq->num_server_reads; i++) {
+        server_chunk_reads_t* read = &rdreq->remote_reads[i];
         read->rdreq_id = rdreq->req_ndx;
     }
 
@@ -567,7 +554,7 @@ int rm_request_exit(reqmgr_thrd_t* thrd_ctrl)
  * @return size of packed buffer (or error code)
  */
 static size_t rm_pack_chunk_requests(char* req_msg_buf,
-                                     remote_chunk_reads_t* remote_reads)
+                                     server_chunk_reads_t* remote_reads)
 {
     /* send format:
      *   (int)    cmd      - specifies type of message (SVC_CMD_RDREQ_CHK)
@@ -605,7 +592,7 @@ static size_t rm_pack_chunk_requests(char* req_msg_buf,
     return packed_size;
 }
 
-/* send the chunk read requests to remote delegators
+/* send the chunk read requests to remote servers
  *
  * @param thrd_ctrl : reqmgr thread control structure
  * @return success/error code
@@ -622,15 +609,15 @@ static int rm_request_remote_chunks(reqmgr_thrd_t* thrd_ctrl)
     RM_REQ_LOCK(thrd_ctrl);
     for (i = 0; i < RM_MAX_ACTIVE_REQUESTS; i++) {
         server_read_req_t* req = thrd_ctrl->read_reqs + i;
-        if (req->num_remote_reads > 0) {
+        if (req->num_server_reads > 0) {
             LOGDBG("read req %d is active", i);
             debug_print_read_req(req);
             if (req->status == READREQ_READY) {
                 req->status = READREQ_STARTED;
                 /* iterate over each server we need to send requests to */
-                remote_chunk_reads_t* remote_reads;
+                server_chunk_reads_t* remote_reads;
                 size_t packed_sz;
-                for (j = 0; j < req->num_remote_reads; j++) {
+                for (j = 0; j < req->num_server_reads; j++) {
                     remote_reads = req->remote_reads + j;
                     remote_reads->status = READREQ_STARTED;
 
@@ -642,7 +629,7 @@ static int rm_request_remote_chunks(reqmgr_thrd_t* thrd_ctrl)
 
                     /* send requests */
                     LOGDBG("[%d of %d] sending %d chunk requests to server %d",
-                           j, req->num_remote_reads,
+                           j, req->num_server_reads,
                            remote_reads->num_chunks, del_rank);
                     rc = invoke_chunk_read_request_rpc(del_rank, req,
                                                        remote_reads->num_chunks,
@@ -658,7 +645,7 @@ static int rm_request_remote_chunks(reqmgr_thrd_t* thrd_ctrl)
                 /* already started */
                 LOGDBG("read req %d already processed", i);
             }
-        } else if (req->num_remote_reads == 0) {
+        } else if (req->num_server_reads == 0) {
             if (req->status == READREQ_READY) {
                 req->status = READREQ_STARTED;
             }
@@ -669,7 +656,7 @@ static int rm_request_remote_chunks(reqmgr_thrd_t* thrd_ctrl)
     return ret;
 }
 
-/* send the chunk read requests to remote delegators
+/* process chunk read responses from remote servers
  *
  * @param thrd_ctrl : reqmgr thread control structure
  * @return success/error code
@@ -686,23 +673,23 @@ static int rm_process_remote_chunk_responses(reqmgr_thrd_t* thrd_ctrl)
     for (i = 0; i < RM_MAX_ACTIVE_REQUESTS; i++) {
         server_read_req_t* req = thrd_ctrl->read_reqs + i;
         if (req->status == READREQ_STARTED) {
-            if (req->num_remote_reads > 0) {
+            if (req->num_server_reads > 0) {
                 /* iterate over each server we sent requests to */
-                remote_chunk_reads_t* rcr;
-                for (j = 0; j < req->num_remote_reads; j++) {
-                    rcr = req->remote_reads + j;
-                    if (NULL == rcr->resp) {
+                server_chunk_reads_t* scr;
+                for (j = 0; j < req->num_server_reads; j++) {
+                    scr = req->remote_reads + j;
+                    if (NULL == scr->resp) {
                         continue;
                     }
                     LOGDBG("found read req %d responses from server %d",
-                           i, rcr->rank);
-                    rc = rm_handle_chunk_read_responses(thrd_ctrl, req, rcr);
+                           i, scr->rank);
+                    rc = rm_handle_chunk_read_responses(thrd_ctrl, req, scr);
                     if (rc != (int)UNIFYFS_SUCCESS) {
                         LOGERR("failed to handle chunk read responses");
                         ret = rc;
                     }
                 }
-            } else if (req->num_remote_reads == 0) {
+            } else if (req->num_server_reads == 0) {
                 /* look up client shared memory region */
                 int app_id = req->app_id;
                 int client_id = req->client_id;
@@ -795,7 +782,7 @@ int rm_post_chunk_read_responses(int app_id,
     reqmgr_thrd_t* thrd_ctrl = client->reqmgr;
     assert(NULL != thrd_ctrl);
 
-    remote_chunk_reads_t* del_reads = NULL;
+    server_chunk_reads_t* del_reads = NULL;
 
     /* find read req associated with req_id */
     if (src_rank != glb_pmi_rank) {
@@ -804,7 +791,7 @@ int rm_post_chunk_read_responses(int app_id,
         RM_REQ_LOCK(thrd_ctrl);
     }
     server_read_req_t* rdreq = thrd_ctrl->read_reqs + req_id;
-    for (int i = 0; i < rdreq->num_remote_reads; i++) {
+    for (int i = 0; i < rdreq->num_server_reads; i++) {
         if (rdreq->remote_reads[i].rank == src_rank) {
             del_reads = rdreq->remote_reads + i;
             break;
@@ -864,6 +851,8 @@ static int send_data_to_client(shm_context* shm, chunk_read_resp_t* resp,
             tx_size = bytes_left;
         }
 
+        // MJB TODO - replace this with a rpc to client
+
         meta = reserve_shmem_meta(shm, tx_size);
         if (meta) {
             meta->gfid = resp->gfid;
@@ -903,7 +892,7 @@ static int send_data_to_client(shm_context* shm, chunk_read_resp_t* resp,
  */
 int rm_handle_chunk_read_responses(reqmgr_thrd_t* thrd_ctrl,
                                    server_read_req_t* rdreq,
-                                   remote_chunk_reads_t* del_reads)
+                                   server_chunk_reads_t* del_reads)
 {
     // NOTE: this fn assumes thrd_ctrl->thrd_lock is locked
 
@@ -963,13 +952,13 @@ int rm_handle_chunk_read_responses(reqmgr_thrd_t* thrd_ctrl,
 
         /* if all remote reads are complete, mark the request as complete */
         int completed_remote_reads = 0;
-        for (i = 0; i < rdreq->num_remote_reads; i++) {
+        for (i = 0; i < rdreq->num_server_reads; i++) {
             if (rdreq->remote_reads[i].status != READREQ_COMPLETE) {
                 break;
             }
             completed_remote_reads++;
         }
-        if (completed_remote_reads == rdreq->num_remote_reads) {
+        if (completed_remote_reads == rdreq->num_server_reads) {
             rdreq->status = READREQ_COMPLETE;
 
             /* signal client that we're now done writing data */
@@ -1422,7 +1411,7 @@ void* request_manager_thread(void* arg)
         /* grab lock */
         RM_LOCK(thrd_ctrl);
 
-        /* process any chunk read responses */
+        /* process any client requests */
         rc = rm_process_client_requests(thrd_ctrl);
         if (rc != UNIFYFS_SUCCESS) {
             LOGERR("failed to process client rpc requests");

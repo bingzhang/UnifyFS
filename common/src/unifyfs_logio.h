@@ -28,6 +28,7 @@ extern "C" {
 typedef struct logio_context {
     shm_context* shmem;   /* shmem region for memory storage */
     void*  spill_hdr;     /* mmap() address for spillover file log header */
+    char*  spill_file;    /* pathname of spillover file */
     size_t spill_sz;      /* size of spillover file */
     int    spill_fd;      /* spillover file descriptor */
 } logio_context;
@@ -67,10 +68,12 @@ int unifyfs_logio_init_client(const int app_id,
 /**
  * Close logio context.
  *
- * @param ctx pointer to logio context
+ * @param ctx          pointer to logio context
+ * @param clean_spill  set to non-zero to have server remove spill file
  * @return UNIFYFS_SUCCESS, or error code
  */
-int unifyfs_logio_close(logio_context* ctx);
+int unifyfs_logio_close(logio_context* ctx,
+                        int clean_spill);
 
 /**
  * Allocate write space from logio context.

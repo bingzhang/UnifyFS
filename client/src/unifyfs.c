@@ -2422,7 +2422,7 @@ static int unifyfs_finalize(void)
 
     /* close spillover files */
     if (NULL != logio_ctx) {
-        unifyfs_logio_close(logio_ctx);
+        unifyfs_logio_close(logio_ctx, 0);
         logio_ctx = NULL;
     }
     if (unifyfs_spillmetablock != -1) {

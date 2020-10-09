@@ -970,7 +970,7 @@ unifyfs_rc cleanup_app_client(app_config* app, app_client* client)
 
     /* close client logio context */
     if (NULL != client->logio) {
-        unifyfs_logio_close(client->logio);
+        unifyfs_logio_close(client->logio, 1);
         client->logio = NULL;
     }
 

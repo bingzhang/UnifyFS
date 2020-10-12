@@ -1433,6 +1433,7 @@ void* request_manager_thread(void* arg)
          * some work (rather than the dispatcher grabbing the lock
          * and assigning yet more work) */
         if (thrd_ctrl->has_waiting_dispatcher == 1) {
+            /* MJB TODO - should this be pthread_cond_broadcast() since we might have multiple requestors waiting? */
             pthread_cond_signal(&thrd_ctrl->thrd_cond);
         }
 

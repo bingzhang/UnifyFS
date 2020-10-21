@@ -41,6 +41,8 @@ CLIENT_COMMON_LIBADD = \
   -lrt -lpthread
 
 CLIENT_COMMON_SOURCES = \
+  client-read.c \
+  client-read.h \
   margo_client.c \
   margo_client.h \
   unifyfs.c \

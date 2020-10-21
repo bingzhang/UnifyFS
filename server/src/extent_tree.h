@@ -15,9 +15,6 @@
 #ifndef __EXTENT_TREE_H__
 #define __EXTENT_TREE_H__
 
-#include <pthread.h>
-
-#include "tree.h"
 #include "unifyfs_global.h"
 
 struct extent_tree_node {

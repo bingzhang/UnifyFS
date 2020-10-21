@@ -43,6 +43,7 @@
 #include "unifyfs-internal.h"
 #include "unifyfs-sysio.h"
 #include "margo_client.h"
+#include "client-read.h"
 
 /* ---------------------------------------
  * POSIX wrappers: paths
@@ -951,11 +952,11 @@ int unifyfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* nread)
     req.offset  = (size_t) pos;
     req.length  = count;
     req.nread   = 0;
-    req.errcode = EINPROGRESS;
+    req.errcode = 0;
     req.buf     = buf;
 
     /* execute read operation */
-    int ret = unifyfs_gfid_read_reqs(&req, 1);
+    int ret = process_gfid_reads(&req, 1);
     if (ret != UNIFYFS_SUCCESS) {
         /* failed to issue read operation */
         return ret;
@@ -1581,7 +1582,7 @@ int UNIFYFS_WRAP(lio_listio)(int mode, struct aiocb* const aiocb_list[],
                     reqs[reqcnt].offset  = (size_t)(cbp->aio_offset);
                     reqs[reqcnt].length  = cbp->aio_nbytes;
                     reqs[reqcnt].nread   = 0;
-                    reqs[reqcnt].errcode = EINPROGRESS;
+                    reqs[reqcnt].errcode = 0;
                     reqs[reqcnt].buf     = (char*)(cbp->aio_buf);
                     reqs[reqcnt].aiocbp  = cbp;
                     reqcnt++;
@@ -1607,7 +1608,7 @@ int UNIFYFS_WRAP(lio_listio)(int mode, struct aiocb* const aiocb_list[],
     }
 
     if (reqcnt) {
-        rc = unifyfs_gfid_read_reqs(reqs, reqcnt);
+        rc = process_gfid_reads(reqs, reqcnt);
         if (rc != UNIFYFS_SUCCESS) {
             /* error reading data */
             ret = rc;
@@ -1664,12 +1665,12 @@ ssize_t UNIFYFS_WRAP(pread)(int fd, void* buf, size_t count, off_t offset)
         req.offset  = offset;
         req.length  = count;
         req.nread   = 0;
-        req.errcode = EINPROGRESS;
+        req.errcode = 0;
         req.buf     = buf;
 
         /* execute read operation */
         ssize_t retcount;
-        int ret = unifyfs_gfid_read_reqs(&req, 1);
+        int ret = process_gfid_reads(&req, 1);
         if (ret != UNIFYFS_SUCCESS) {
             /* error reading data */
             errno = unifyfs_rc_errno(ret);

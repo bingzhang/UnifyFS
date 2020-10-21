@@ -18,14 +18,7 @@
  * segments in the tree.  This is used to coalesce writes before an fsync.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <pthread.h>
-
 #include "extent_tree.h"
-#include "tree.h"
 #include "unifyfs_metadata_mdhim.h"
 
 #undef MIN

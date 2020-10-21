@@ -253,6 +253,9 @@ static void unifyfs_metaget_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -313,6 +316,9 @@ static void unifyfs_metaset_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -373,6 +379,9 @@ static void unifyfs_fsync_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -432,6 +441,9 @@ static void unifyfs_filesize_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -492,6 +504,9 @@ static void unifyfs_truncate_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -551,6 +566,9 @@ static void unifyfs_unlink_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -611,6 +629,9 @@ static void unifyfs_laminate_rpc(hg_handle_t handle)
             }
 
             if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
                 margo_free_input(handle, in);
             }
         }
@@ -637,116 +658,99 @@ static void unifyfs_laminate_rpc(hg_handle_t handle)
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_laminate_rpc)
 
-/* given an app_id, client_id, global file id, an offset, and a length,
- * initiate read operation to lookup and return data.
- * client synchronizes with server again later when data is available
- * to be copied into user buffers */
-static void unifyfs_read_rpc(hg_handle_t handle)
-{
-    int ret = (int) UNIFYFS_SUCCESS;
 
-    /* get input params */
-    unifyfs_read_in_t in;
-    hg_return_t hret = margo_get_input(handle, &in);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_get_input() failed");
-        ret = UNIFYFS_ERROR_MARGO;
-    } else {
-        /* read data for a single read request from client,
-         * returns data to client through shared memory */
-        unifyfs_fops_ctx_t ctx = {
-            .app_id = in.app_id,
-            .client_id = in.client_id,
-        };
-        ret = unifyfs_fops_read(&ctx, in.gfid, in.offset, in.length);
-
-        margo_free_input(handle, &in);
-    }
-
-    /* build our output values */
-    unifyfs_read_out_t out;
-    out.ret = ret;
-
-    /* return to caller */
-    hret = margo_respond(handle, &out);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_respond() failed");
-    }
-
-    /* free margo resources */
-    margo_destroy(handle);
-}
-DEFINE_MARGO_RPC_HANDLER(unifyfs_read_rpc)
-
-/* given an app_id, client_id, global file id, and a count
- * of read requests, follow by list of offset/length tuples
- * initiate read requests for data,
- * client synchronizes with server again later when data is available
- * to be copied into user buffers */
+/* given (mread_id, app_id, client_id) and count of read requests,
+ * followed by a bulk data array of read extents (unifyfs_extent_t),
+ * initiate read requests for data. */
 static void unifyfs_mread_rpc(hg_handle_t handle)
 {
-    int ret = (int) UNIFYFS_SUCCESS;
+    int ret = UNIFYFS_SUCCESS;
+    hg_return_t hret;
 
     /* get input params */
-    unifyfs_mread_in_t in;
-    hg_return_t hret = margo_get_input(handle, &in);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_get_input() failed");
-        ret = UNIFYFS_ERROR_MARGO;
+    unifyfs_mread_in_t* in = malloc(sizeof(*in));
+    if (NULL == in) {
+        ret = ENOMEM;
     } else {
-        /* allocate buffer to hold array of read requests */
-        hg_size_t size = in.bulk_size;
-        void* buffer = malloc(size);
-        if (NULL == buffer) {
-            ret = ENOMEM;
+        hret = margo_get_input(handle, in);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_get_input() failed");
+            ret = UNIFYFS_ERROR_MARGO;
         } else {
-            /* get pointer to mercury structures to set up bulk transfer */
-            const struct hg_info* hgi = margo_get_info(handle);
-            assert(hgi);
-            margo_instance_id mid = margo_hg_info_get_instance(hgi);
-            assert(mid != MARGO_INSTANCE_NULL);
-
-            /* register local target buffer for bulk access */
-            hg_bulk_t bulk_handle;
-            hret = margo_bulk_create(mid, 1, &buffer, &size,
-                                     HG_BULK_WRITE_ONLY, &bulk_handle);
-            if (hret != HG_SUCCESS) {
-                LOGERR("margo_bulk_create() failed");
-                ret = UNIFYFS_ERROR_MARGO;
+            /* allocate buffer to hold array of read requests */
+            hg_size_t size = in->bulk_size;
+            void* buffer = malloc(size);
+            if (NULL == buffer) {
+                ret = ENOMEM;
             } else {
-                /* get list of read requests */
-                hret = margo_bulk_transfer(mid, HG_BULK_PULL, hgi->addr,
-                                           in.bulk_handle, 0, bulk_handle,
-                                           0, size);
+                /* get mercury info to set up bulk transfer */
+                const struct hg_info* hgi = margo_get_info(handle);
+                assert(hgi);
+                margo_instance_id mid = margo_hg_info_get_instance(hgi);
+                assert(mid != MARGO_INSTANCE_NULL);
+
+                /* register local target buffer for bulk access */
+                hg_bulk_t bulk_handle;
+                hret = margo_bulk_create(mid, 1, &buffer, &size,
+                                         HG_BULK_WRITE_ONLY, &bulk_handle);
                 if (hret != HG_SUCCESS) {
-                    LOGERR("margo_bulk_transfer() failed");
+                    LOGERR("margo_bulk_create() failed");
                     ret = UNIFYFS_ERROR_MARGO;
                 } else {
-                    /* initiate read operations to fetch data */
-                    unifyfs_fops_ctx_t ctx = {
-                        .app_id = in.app_id,
-                        .client_id = in.client_id,
-                    };
-                    ret = unifyfs_fops_mread(&ctx, in.read_count, buffer);
+                    /* get list of read requests */
+                    hret = margo_bulk_transfer(mid, HG_BULK_PULL, hgi->addr,
+                                               in->bulk_extents, 0,
+                                               bulk_handle, 0, size);
+                    if (hret != HG_SUCCESS) {
+                        LOGERR("margo_bulk_transfer() failed");
+                        ret = UNIFYFS_ERROR_MARGO;
+                    } else {
+                        client_rpc_req_t* req = malloc(sizeof(*req));
+                        if (NULL == req) {
+                            ret = ENOMEM;
+                        } else {
+                            unifyfs_fops_ctx_t ctx = {
+                                .app_id = in->app_id,
+                                .client_id = in->client_id
+                            };
+                            req->req_type = UNIFYFS_CLIENT_RPC_READ;
+                            req->handle = handle;
+                            req->input = (void*) in;
+                            req->bulk_buf = buffer;
+                            req->bulk_sz = size;
+                            ret = rm_submit_client_rpc_request(&ctx, req);
+                        }
+
+                        if (ret != UNIFYFS_SUCCESS) {
+                            free(buffer);
+                            if (NULL != req) {
+                                free(req);
+                            }
+                            margo_free_input(handle, in);
+                        }
+                    }
+                    margo_bulk_free(bulk_handle);
                 }
-                margo_bulk_free(bulk_handle);
             }
-            free(buffer);
         }
-        margo_free_input(handle, &in);
     }
 
-    /* build our output values */
-    unifyfs_mread_out_t out;
-    out.ret = ret;
+    /* if we hit an error during request submission, respond with the error */
+    if (ret != UNIFYFS_SUCCESS) {
+        if (NULL != in) {
+            free(in);
+        }
 
-    /* return to caller */
-    hret = margo_respond(handle, &out);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_respond() failed");
+        /* return to caller */
+        unifyfs_mread_out_t out;
+        out.ret = (int32_t) ret;
+        hret = margo_respond(handle, &out);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_respond() failed");
+        }
+
+        /* free margo resources */
+        margo_destroy(handle);
     }
-
-    /* free margo resources */
-    margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_mread_rpc)

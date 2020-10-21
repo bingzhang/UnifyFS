@@ -35,23 +35,23 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include <pthread.h>
 
 // common headers
 #include "arraylist.h"
+#include "tree.h"
 #include "unifyfs_const.h"
 #include "unifyfs_log.h"
 #include "unifyfs_logio.h"
 #include "unifyfs_meta.h"
 #include "unifyfs_shm.h"
-#include "unifyfs_fops.h"
 #include "unifyfs_client_rpcs.h"
 #include "unifyfs_server_rpcs.h"
 
@@ -122,13 +122,6 @@ typedef struct {
     chunk_read_resp_t* resp; /* @RM: received responses buffer
                               * @SM: allocated responses buffer */
 } server_chunk_reads_t;
-
-typedef struct {
-    size_t length;  /* length of data to read */
-    size_t offset;  /* file offset */
-    int gfid;       /* global file id */
-    int errcode;    /* request completion status */
-} client_read_req_t;
 
 // forward declaration of reqmgr_thrd
 struct reqmgr_thrd;

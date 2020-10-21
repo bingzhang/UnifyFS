@@ -247,7 +247,7 @@ int svcmgr_init(void)
     }
 
     /* allocate a list to track chunk read requests */
-    sm->chunk_reads = arraylist_create();
+    sm->chunk_reads = arraylist_create(0);
     if (sm->chunk_reads == NULL) {
         LOGERR("failed to allocate service manager chunk_reads!");
         svcmgr_fini();
@@ -316,7 +316,7 @@ static int send_chunk_read_responses(void)
          * it with an empty list */
         LOGDBG("processing %d chunk read responses", num_chunk_reads);
         chunk_reads = sm->chunk_reads;
-        sm->chunk_reads = arraylist_create();
+        sm->chunk_reads = arraylist_create(0);
     }
 
     /* release lock on service manager object */

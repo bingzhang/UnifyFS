@@ -122,6 +122,7 @@ int client_update_mread_request(client_mread_status* mread,
 {
     int ret = UNIFYFS_SUCCESS;
 
+    LOGDBG("updating mread[%d] status for request %d", mread->id, req_index);
     ABT_mutex_lock(mread->sync);
     if (req_index < mread->n_reads) {
         read_req_t* rdreq = mread->reqs + req_index;
@@ -146,7 +147,8 @@ int client_update_mread_request(client_mread_status* mread,
     
     if (complete) {
         /* Signal client thread waiting on mread completion */
-        LOGDBG("mread[%d] completed %d requests", mread->id, mread->n_reads);
+        LOGDBG("mread[%d] signalling completion of %d requests",
+               mread->id, mread->n_reads);
         pthread_cond_signal(&(mread->completed));
     }
 
@@ -692,6 +694,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
                                              &(mread->mutex), &timeout);
         if (wait_rc) {
             if (ETIMEDOUT == wait_rc) {
+                LOGERR("mread[%d] timed out", mread->id);
                 for (i = 0; i < server_count; i++) {
                     if (EINPROGRESS == server_reqs[i].errcode) {
                         server_reqs[i].errcode = wait_rc;

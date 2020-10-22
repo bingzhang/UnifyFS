@@ -767,6 +767,7 @@ static void unifyfs_mread_req_data_rpc(hg_handle_t handle)
     } else {
         /* lookup client mread request */
         int client_mread = (int) in.mread_id;
+        LOGDBG("looking up mread[%d]", client_mread);
         client_mread_status* mread = client_get_mread_status(client_mread);
         if (NULL == mread) {
             /* unknown client request */
@@ -815,6 +816,8 @@ static void unifyfs_mread_req_data_rpc(hg_handle_t handle)
                             update_read_req_coverage(rdreq, data_offset,
                                                      data_size);
                             ABT_mutex_unlock(mread->sync);
+                            LOGDBG("updated coverage for mread[%d] request %d",
+                                   client_mread, read_index);
                         }
                         margo_bulk_free(bulk_handle);
                     }
@@ -827,6 +830,8 @@ static void unifyfs_mread_req_data_rpc(hg_handle_t handle)
     /* set rpc result status */
     unifyfs_mread_req_data_out_t out;
     out.ret = ret;
+
+    LOGDBG("responding");
 
     /* return to caller */
     hret = margo_respond(handle, &out);
@@ -854,6 +859,7 @@ static void unifyfs_mread_req_complete_rpc(hg_handle_t handle)
     } else {
         /* lookup client mread request */
         int client_mread = (int) in.mread_id;
+        LOGDBG("looking up mread[%d]", client_mread);
         client_mread_status* mread = client_get_mread_status(client_mread);
         if (NULL == mread) {
             /* unknown client request */
@@ -874,6 +880,8 @@ static void unifyfs_mread_req_complete_rpc(hg_handle_t handle)
     /* set rpc result status */
     unifyfs_mread_req_complete_out_t out;
     out.ret = ret;
+
+    LOGDBG("responding");
 
     /* return to caller */
     hret = margo_respond(handle, &out);

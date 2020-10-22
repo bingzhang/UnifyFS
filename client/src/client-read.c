@@ -20,8 +20,8 @@ static void debug_print_read_req(read_req_t* req)
     if (NULL != req) {
         LOGDBG("read_req[%p] gfid=%d, file offset=%zu, length=%zu, buf=%p"
                " - nread=%zu, errcode=%d (%s), byte coverage=[%zu,%zu]",
-               req, req->gfid, req->offset, req->length, req->buf,
-               req->nread, req->errcode, unifyfs_rc_enum_str(req->errcode),
+               req, req->gfid, req->offset, req->length, req->buf, req->nread,
+               req->errcode, unifyfs_rc_enum_description(req->errcode),
                req->cover_begin_offset, req->cover_end_offset);
     }
 }

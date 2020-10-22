@@ -15,6 +15,17 @@
 #include "client-read.h"
 
 
+static void debug_print_read_req(read_req_t* req)
+{
+    if (NULL != req) {
+        LOGDBG("read_req[%p] file offset=%d, length=%d, buf=%p"
+               " - nread=%zu, errcode=%d (%s), byte coverage=[%zu,%zu]",
+               req, req->offset, req->length, req->buf,
+               req->nread, req->errcode, unifyfs_rc_enum_str(req->errcode),
+               req->cover_begin_offset, req->cover_end_offset);
+    }
+}
+
 /* an arraylist to maintain the active mread requests for the client */
 arraylist_t* active_mreads; // = NULL
 
@@ -55,7 +66,7 @@ client_mread_status* client_create_mread_request(int n_reads,
         req_ndx = id_to_list_index(mread_id);
         existing = arraylist_get(active_mreads, req_ndx);
     } while (existing != NULL);
-     
+
     client_mread_status* mread = calloc(1, sizeof(client_mread_status));
     if (NULL == mread) {
         LOGERR("failed to allocate client mread status");
@@ -96,7 +107,7 @@ client_mread_status* client_get_mread_status(int mread_id)
         LOGERR("active_mreads is NULL");
         return NULL;
     }
-    
+
     int list_index = id_to_list_index(mread_id);
     void* list_item = arraylist_get(active_mreads, list_index);
     client_mread_status* status = (client_mread_status*)list_item;
@@ -133,7 +144,7 @@ int client_update_mread_request(client_mread_status* mread,
                 rdreq->nread = 0;
                 rdreq->errcode = req_error;
             } else {
-                rdreq->nread = rdreq->cover_end_offset;
+                rdreq->nread = rdreq->cover_end_offset + 1;
             }
         }
     } else {
@@ -144,7 +155,7 @@ int client_update_mread_request(client_mread_status* mread,
 
     int complete = (mread->n_complete == mread->n_reads);
     ABT_mutex_unlock(mread->sync);
-    
+
     if (complete) {
         /* Signal client thread waiting on mread completion */
         LOGDBG("mread[%d] signalling completion of %d requests",
@@ -206,7 +217,7 @@ char* get_extent_coverage(read_req_t* req,
      * and extent */
     size_t req_byte_offset = start - req_start;
     size_t ext_byte_offset = start - ext_start;
-    
+
     /* fill output values for request and extent byte offsets for covered
      * segment and covered length */
     if (NULL != out_req_offset) {
@@ -231,11 +242,13 @@ void update_read_req_coverage(read_req_t* req,
     size_t end_byte_offset = (extent_byte_offset + extent_length) - 1;
 
     /* update bytes we have filled in the request buffer */
-    if (extent_byte_offset < req->cover_begin_offset) {
+    if ((req->cover_begin_offset == (size_t)-1) ||
+        (extent_byte_offset < req->cover_begin_offset)) {
         req->cover_begin_offset = extent_byte_offset;
     }
 
-    if (end_byte_offset > req->cover_end_offset) {
+    if ((req->cover_end_offset == (size_t)-1) ||
+        (end_byte_offset > req->cover_end_offset)) {
         req->cover_end_offset = end_byte_offset;
     }
 }
@@ -266,7 +279,7 @@ void service_local_reqs(
         /* get current read request */
         read_req_t* req = &read_reqs[i];
         int gfid = req->gfid;
-        
+
         /* lookup local extents if we have them */
         int fid = unifyfs_fid_from_gfid(gfid);
 
@@ -562,7 +575,7 @@ int process_read_data(read_req_t* read_reqs, int count, int* done)
  *
  * @param in_reqs     a list of read requests
  * @param in_count    number of read requests
- * 
+ *
  * @return error code
  */
 int process_gfid_reads(read_req_t* in_reqs, int in_count)
@@ -674,7 +687,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
     /* invoke multi-read rpc on server */
     read_rc = invoke_client_mread_rpc(mread_id, server_count, size, buffer);
     free(buffer);
-    
+
     if (read_rc != UNIFYFS_SUCCESS) {
         /* mark requests as failed if we couldn't even start the read(s) */
         LOGERR("failed to issue read RPC to server");
@@ -714,6 +727,8 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
     for (i = 0; i < server_count; i++) {
         /* get pointer to next read request */
         read_req_t* req = server_reqs + i;
+        LOGDBG("mread[%d] server request %d:", mread->id, i);
+        debug_print_read_req(req);
 
         /* no error message was received from server, assume success */
         if (req->errcode == EINPROGRESS) {

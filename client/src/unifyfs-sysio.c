@@ -954,6 +954,9 @@ int unifyfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* nread)
     req.nread   = 0;
     req.errcode = 0;
     req.buf     = buf;
+    req.aiocbp  = NULL;
+    req.cover_begin_offset = (size_t)-1;
+    req.cover_end_offset   = (size_t)-1;
 
     /* execute read operation */
     int ret = process_gfid_reads(&req, 1);
@@ -1585,6 +1588,8 @@ int UNIFYFS_WRAP(lio_listio)(int mode, struct aiocb* const aiocb_list[],
                     reqs[reqcnt].errcode = 0;
                     reqs[reqcnt].buf     = (char*)(cbp->aio_buf);
                     reqs[reqcnt].aiocbp  = cbp;
+                    reqs[reqcnt].cover_begin_offset = (size_t)-1;
+                    reqs[reqcnt].cover_end_offset   = (size_t)-1;
                     reqcnt++;
                 }
             } else {
@@ -1667,6 +1672,9 @@ ssize_t UNIFYFS_WRAP(pread)(int fd, void* buf, size_t count, off_t offset)
         req.nread   = 0;
         req.errcode = 0;
         req.buf     = buf;
+        req.aiocbp  = NULL;
+        req.cover_begin_offset = (size_t)-1;
+        req.cover_end_offset   = (size_t)-1;
 
         /* execute read operation */
         ssize_t retcount;

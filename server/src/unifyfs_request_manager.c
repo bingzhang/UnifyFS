@@ -1411,6 +1411,12 @@ void* request_manager_thread(void* arg)
             LOGERR("failed to process client rpc requests");
         }
 
+         /* send chunk read requests to remote servers */
+        rc = rm_request_remote_chunks(thrd_ctrl);
+        if (rc != UNIFYFS_SUCCESS) {
+            LOGERR("failed to request remote chunks");
+        }
+
         /* process any chunk read responses */
         rc = rm_process_remote_chunk_responses(thrd_ctrl);
         if (rc != UNIFYFS_SUCCESS) {
@@ -1444,12 +1450,6 @@ void* request_manager_thread(void* arg)
         /* bail out if we've been told to exit */
         if (thrd_ctrl->exit_flag == 1) {
             break;
-        }
-
-        /* send chunk read requests to remote servers */
-        rc = rm_request_remote_chunks(thrd_ctrl);
-        if (rc != UNIFYFS_SUCCESS) {
-            LOGERR("failed to request remote chunks");
         }
     }
 

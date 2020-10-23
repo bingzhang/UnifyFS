@@ -350,11 +350,6 @@ typedef struct {
 extern unifyfs_index_buf_t unifyfs_indices;
 extern unsigned long unifyfs_max_index_entries;
 
-#if 0
-/* shmem context for read-request replies data region */
-extern shm_context* shm_recv_ctx;
-#endif
-
 /* log-based I/O context */
 extern logio_context* logio_ctx;
 

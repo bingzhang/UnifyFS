@@ -67,11 +67,6 @@ unsigned long unifyfs_max_index_entries; /* max metadata log entries */
 int global_rank_cnt;  /* count of world ranks */
 int client_rank;      /* client-provided rank (for debugging) */
 
-/* shared memory buffer to transfer read replies
- * from server to client */
-shm_context* shm_recv_ctx; // = NULL
-
-
 int unifyfs_app_id;
 int unifyfs_client_id;
 
@@ -1506,40 +1501,6 @@ static int init_superblock_shm(size_t super_sz)
     return UNIFYFS_SUCCESS;
 }
 
-#if 0
-/**
- * Initialize the shared recv memory buffer to receive data from the delegators
- */
-static int init_recv_shm(void)
-{
-    char shm_recv_name[SHMEM_NAME_LEN] = {0};
-    size_t shm_recv_size = UNIFYFS_DATA_RECV_SIZE;
-
-    /* get size of shared memory region from configuration */
-    char* cfgval = NULL; //client_cfg.client_recv_data_size;
-    if (cfgval != NULL) {
-        long l;
-        int rc = configurator_int_val(cfgval, &l);
-        if (rc == 0) {
-            shm_recv_size = (size_t) l;
-        }
-    }
-
-    /* define file name to shared memory file */
-    snprintf(shm_recv_name, sizeof(shm_recv_name),
-             SHMEM_DATA_FMTSTR, unifyfs_app_id, unifyfs_client_id);
-
-    /* allocate memory for shared memory receive buffer */
-    shm_recv_ctx = unifyfs_shm_alloc(shm_recv_name, shm_recv_size);
-    if (NULL == shm_recv_ctx) {
-        LOGERR("Failed to create buffer for read replies");
-        return UNIFYFS_FAILURE;
-    }
-
-    return UNIFYFS_SUCCESS;
-}
-#endif
-
 static int unifyfs_init(void)
 {
     int rc;
@@ -1708,15 +1669,6 @@ static int unifyfs_init(void)
             return rc;
         }
 
-#if 0
-        /* create shared memory region for holding data for read replies */
-        rc = init_recv_shm();
-        if (rc < 0) {
-            LOGERR("failed to initialize data recv shmem");
-            return UNIFYFS_FAILURE;
-        }
-#endif
-
         /* initialize active_mreads arraylist */
         active_mreads = arraylist_create(UNIFYFS_CLIENT_MAX_READ_COUNT);
         if (NULL == active_mreads) {
@@ -1766,10 +1718,6 @@ static int unifyfs_finalize(void)
      * a later client can reattach. */
     unifyfs_shm_free(&shm_super_ctx);
 
-    /* unlink and detach from data receive shmem */
-    unifyfs_shm_unlink(shm_recv_ctx);
-    unifyfs_shm_free(&shm_recv_ctx);
-
     /* free directory stream stack */
     if (unifyfs_dirstream_stack != NULL) {
         free(unifyfs_dirstream_stack);
@@ -1816,7 +1764,6 @@ void fill_client_attach_info(unifyfs_attach_in_t* in)
 
     in->app_id            = unifyfs_app_id;
     in->client_id         = unifyfs_client_id;
-    //in->shmem_data_size   = shm_recv_ctx->size;
     in->shmem_super_size  = shm_super_ctx->size;
     in->meta_offset       = meta_offset;
     in->meta_size         = meta_size;
@@ -1942,13 +1889,6 @@ int unifyfs_mount(const char prefix[], int rank, size_t size,
         unifyfs_finalize();
         return rc;
     }
-
-    /* Once we return from attach, we know the server has attached to our
-     * shared memory region for read replies, so we can safely remove the
-     * file. The memory region will stay active until both client and server
-     * unmap them. We keep the superblock file around so that a future client
-     * can reattach to it. */
-    unifyfs_shm_unlink(shm_recv_ctx);
 
     /* add mount point as a new directory in the file list */
     if (unifyfs_get_fid_from_path(prefix) < 0) {

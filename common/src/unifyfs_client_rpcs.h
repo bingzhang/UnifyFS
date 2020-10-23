@@ -52,7 +52,6 @@ typedef enum {
 MERCURY_GEN_PROC(unifyfs_attach_in_t,
                  ((int32_t)(app_id))
                  ((int32_t)(client_id))
-                 ((hg_size_t)(shmem_data_size))
                  ((hg_size_t)(shmem_super_size))
                  ((hg_size_t)(meta_offset))
                  ((hg_size_t)(meta_size))

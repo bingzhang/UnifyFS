@@ -374,7 +374,6 @@ int rm_create_chunk_requests(reqmgr_thrd_t* thrd_ctrl,
          * initialize fields on the per-server read request
          * structure */
         if (0 == reads->num_chunks) {
-            /* TODO: let's describe what these fields are for */
             reads->rank     = curr_del;
             reads->rdreq_id = rdreq->req_ndx;
             reads->reqs     = all_chunk_reads + i;
@@ -449,62 +448,6 @@ int rm_submit_read_request(server_read_req_t* req)
 
     return ret;
 }
-
-#if 0
-/* signal the client process for it to start processing read
- * data in shared memory */
-static int client_signal(shm_data_header* hdr,
-                         shm_data_state_e flag)
-{
-    if (flag == SHMEM_REGION_DATA_READY) {
-        LOGDBG("setting data-ready");
-    } else if (flag == SHMEM_REGION_DATA_COMPLETE) {
-        LOGDBG("setting data-complete");
-    }
-
-    /* we signal the client by setting a flag value within
-     * a shared memory segment that the client is monitoring */
-    hdr->state = flag;
-
-    /* TODO: MEM_FLUSH */
-
-    return UNIFYFS_SUCCESS;
-}
-
-/* wait until client has processed all read data in shared memory */
-static int client_wait(shm_data_header* hdr)
-{
-    int rc = (int)UNIFYFS_SUCCESS;
-
-    /* specify time to sleep between checking flag in shared
-     * memory indicating client has processed data */
-    struct timespec shm_wait_tm;
-    shm_wait_tm.tv_sec  = 0;
-    shm_wait_tm.tv_nsec = SHM_WAIT_INTERVAL;
-
-    /* wait for client to set flag to 0 */
-    int max_sleep = 10000000; // 10s
-    volatile int* vip = (volatile int*)&(hdr->state);
-    while (*vip != SHMEM_REGION_EMPTY) {
-        /* not there yet, sleep for a while */
-        nanosleep(&shm_wait_tm, NULL);
-
-        /* TODO: MEM_FETCH */
-
-        max_sleep--;
-        if (0 == max_sleep) {
-            LOGERR("timed out waiting for empty");
-            rc = (int)UNIFYFS_ERROR_SHMEM;
-            break;
-        }
-    }
-
-    /* reset header to reflect empty state */
-    hdr->meta_cnt = 0;
-    hdr->bytes = 0;
-    return rc;
-}
-#endif
 
 /* function called by main thread to instruct
  * resource manager thread to exit,
@@ -708,49 +651,6 @@ static int rm_process_remote_chunk_responses(reqmgr_thrd_t* thrd_ctrl)
 
     return ret;
 }
-
-#if 0
-static shm_data_meta* reserve_shmem_meta(shm_context* shmem_data,
-                                         size_t data_sz)
-{
-    shm_data_meta* meta = NULL;
-    shm_data_header* hdr = (shm_data_header*) shmem_data->addr;
-
-    if (NULL == hdr) {
-        LOGERR("invalid header");
-    } else {
-        pthread_mutex_lock(&(hdr->sync));
-        LOGDBG("shm_data_header(cnt=%zu, bytes=%zu)",
-               hdr->meta_cnt, hdr->bytes);
-        size_t remain_size = shmem_data->size -
-                             (sizeof(shm_data_header) + hdr->bytes);
-        size_t meta_size = sizeof(shm_data_meta) + data_sz;
-        if (meta_size > remain_size) {
-            /* client-side receive buffer is full,
-             * inform client to start reading */
-            LOGDBG("need more space in client recv buffer");
-            client_signal(hdr, SHMEM_REGION_DATA_READY);
-
-            /* wait for client to read data */
-            int rc = client_wait(hdr);
-            if (rc != (int)UNIFYFS_SUCCESS) {
-                LOGERR("wait for client recv buffer space failed");
-                pthread_mutex_unlock(&(hdr->sync));
-                return NULL;
-            }
-        }
-        size_t shm_offset = hdr->bytes;
-        char* shm_buf = ((char*)hdr) + sizeof(shm_data_header);
-        meta = (shm_data_meta*)(shm_buf + shm_offset);
-        LOGDBG("reserved shm_data_meta[%zu] and %zu payload bytes",
-               hdr->meta_cnt, data_sz);
-        hdr->meta_cnt++;
-        hdr->bytes += meta_size;
-        pthread_mutex_unlock(&(hdr->sync));
-    }
-    return meta;
-}
-#endif
 
 int rm_post_chunk_read_responses(int app_id,
                                  int client_id,

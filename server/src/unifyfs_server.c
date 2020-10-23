@@ -747,7 +747,6 @@ app_client* get_app_client(int app_id,
  * @return success|error code
  */
 static unifyfs_rc attach_to_client_shmem(app_client* client,
-                                         size_t shmem_data_sz,
                                          size_t shmem_super_sz)
 {
     shm_context* shm_ctx;
@@ -769,24 +768,6 @@ static unifyfs_rc attach_to_client_shmem(app_client* client,
         return UNIFYFS_ERROR_SHMEM;
     }
     client->shmem_super = shm_ctx;
-
-#if 0
-    /* initialize shmem region for read data */
-    sprintf(shm_name, SHMEM_DATA_FMTSTR, app_id, client_id);
-    shm_ctx = unifyfs_shm_alloc(shm_name, shmem_data_sz);
-    if (NULL == shm_ctx) {
-        LOGERR("Failed to attach to shmem data region %s", shm_name);
-        return UNIFYFS_ERROR_SHMEM;
-    }
-    client->shmem_data = shm_ctx;
-
-    /* initialize shmem header in data region */
-    shm_data_header* shm_hdr = (shm_data_header*) client->shmem_data->addr;
-    pthread_mutex_init(&(shm_hdr->sync), NULL);
-    shm_hdr->meta_cnt = 0;
-    shm_hdr->bytes = 0;
-    shm_hdr->state = SHMEM_REGION_EMPTY;
-#endif
 
     return UNIFYFS_SUCCESS;
 }
@@ -863,7 +844,6 @@ unifyfs_rc attach_app_client(app_client* client,
                              const char* logio_spill_dir,
                              const size_t logio_spill_size,
                              const size_t logio_shmem_size,
-                             const size_t shmem_data_size,
                              const size_t shmem_super_size,
                              const size_t super_meta_offset,
                              const size_t super_meta_size)
@@ -887,7 +867,7 @@ unifyfs_rc attach_app_client(app_client* client,
     }
 
     /* attach server-side shmem regions for this client */
-    rc = attach_to_client_shmem(client, shmem_data_size, shmem_super_size);
+    rc = attach_to_client_shmem(client, shmem_super_size);
     if (rc != UNIFYFS_SUCCESS) {
         failure = 1;
     }
@@ -931,15 +911,6 @@ unifyfs_rc disconnect_app_client(app_client* client)
                     client->margo_addr);
 
     /* release client shared memory regions */
-#if 0
-    if (NULL != client->shmem_data) {
-        /* Release read buffer shared memory region.
-         * Client should have deleted file already, but will not hurt
-         * to do this again. */
-        unifyfs_shm_unlink(client->shmem_data);
-        unifyfs_shm_free(&(client->shmem_data));
-    }
-#endif
     if (NULL != client->shmem_super) {
         /* Release superblock shared memory region.
          * Server is responsible for deleting superblock shared

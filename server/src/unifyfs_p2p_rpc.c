@@ -645,6 +645,7 @@ int unifyfs_invoke_filesize_rpc(int gfid,
         return UNIFYFS_SUCCESS;
     }
     if (owner_rank == glb_pmi_rank) {
+        *filesize = (size_t) attrs.size;
         return rc;
     }
 

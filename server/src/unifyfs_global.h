@@ -183,7 +183,6 @@ unifyfs_rc attach_app_client(app_client* client,
                              const char* logio_spill_dir,
                              const size_t logio_spill_size,
                              const size_t logio_shmem_size,
-                             const size_t shmem_data_size,
                              const size_t shmem_super_size,
                              const size_t super_meta_offset,
                              const size_t super_meta_size);

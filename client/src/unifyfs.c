@@ -1506,6 +1506,7 @@ static int init_superblock_shm(size_t super_sz)
     return UNIFYFS_SUCCESS;
 }
 
+#if 0
 /**
  * Initialize the shared recv memory buffer to receive data from the delegators
  */
@@ -1537,6 +1538,7 @@ static int init_recv_shm(void)
 
     return UNIFYFS_SUCCESS;
 }
+#endif
 
 static int unifyfs_init(void)
 {

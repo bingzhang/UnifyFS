@@ -770,6 +770,7 @@ static unifyfs_rc attach_to_client_shmem(app_client* client,
     }
     client->shmem_super = shm_ctx;
 
+#if 0
     /* initialize shmem region for read data */
     sprintf(shm_name, SHMEM_DATA_FMTSTR, app_id, client_id);
     shm_ctx = unifyfs_shm_alloc(shm_name, shmem_data_sz);
@@ -785,6 +786,7 @@ static unifyfs_rc attach_to_client_shmem(app_client* client,
     shm_hdr->meta_cnt = 0;
     shm_hdr->bytes = 0;
     shm_hdr->state = SHMEM_REGION_EMPTY;
+#endif
 
     return UNIFYFS_SUCCESS;
 }
@@ -929,6 +931,7 @@ unifyfs_rc disconnect_app_client(app_client* client)
                     client->margo_addr);
 
     /* release client shared memory regions */
+#if 0
     if (NULL != client->shmem_data) {
         /* Release read buffer shared memory region.
          * Client should have deleted file already, but will not hurt
@@ -936,6 +939,7 @@ unifyfs_rc disconnect_app_client(app_client* client)
         unifyfs_shm_unlink(client->shmem_data);
         unifyfs_shm_free(&(client->shmem_data));
     }
+#endif
     if (NULL != client->shmem_super) {
         /* Release superblock shared memory region.
          * Server is responsible for deleting superblock shared

@@ -1816,7 +1816,7 @@ void fill_client_attach_info(unifyfs_attach_in_t* in)
 
     in->app_id            = unifyfs_app_id;
     in->client_id         = unifyfs_client_id;
-    in->shmem_data_size   = shm_recv_ctx->size;
+    //in->shmem_data_size   = shm_recv_ctx->size;
     in->shmem_super_size  = shm_super_ctx->size;
     in->meta_offset       = meta_offset;
     in->meta_size         = meta_size;

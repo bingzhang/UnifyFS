@@ -142,7 +142,7 @@ typedef struct app_client {
 
     logio_context* logio;    /* logio context for write data */
 
-    shm_context* shmem_data;  /* shmem context for read data */
+    //shm_context* shmem_data;  /* shmem context for read data */
 
     shm_context* shmem_super; /* shmem context for superblock region */
     size_t super_meta_offset; /* superblock offset to index metadata */

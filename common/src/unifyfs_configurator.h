@@ -69,9 +69,9 @@
     UNIFYFS_CFG_CLI(unifyfs, consistency, STRING, LAMINATED, "consistency model", NULL, 'c', "specify consistency model (NONE | LAMINATED | POSIX)") \
     UNIFYFS_CFG_CLI(unifyfs, daemonize, BOOL, on, "enable server daemonization", NULL, 'D', "on|off") \
     UNIFYFS_CFG_CLI(unifyfs, mountpoint, STRING, /unifyfs, "mountpoint directory", NULL, 'm', "specify full path to desired mountpoint") \
-    UNIFYFS_CFG(client, max_files, INT, UNIFYFS_MAX_FILES, "client max file count", NULL) \
+    UNIFYFS_CFG(client, max_files, INT, UNIFYFS_CLIENT_MAX_FILES, "client max file count", NULL) \
     UNIFYFS_CFG(client, local_extents, BOOL, off, "track extents to service reads of local data", NULL) \
-    UNIFYFS_CFG(client, write_index_size, INT, UNIFYFS_INDEX_BUF_SIZE, "write metadata index buffer size", NULL) \
+    UNIFYFS_CFG(client, write_index_size, INT, UNIFYFS_CLIENT_WRITE_INDEX_SIZE, "write metadata index buffer size", NULL) \
     UNIFYFS_CFG(client, cwd, STRING, NULLSTRING, "current working directory", NULL) \
     UNIFYFS_CFG_CLI(log, verbosity, INT, 0, "log verbosity level", NULL, 'v', "specify logging verbosity level") \
     UNIFYFS_CFG_CLI(log, file, STRING, unifyfsd.log, "log file name", NULL, 'l', "specify log file name") \

@@ -105,22 +105,22 @@ static unifyfs_filemeta_t* unifyfs_filemetas;
 int unifyfs_spillmetablock = -1;
 
 /* array of file descriptors */
-unifyfs_fd_t unifyfs_fds[UNIFYFS_MAX_FILEDESCS];
+unifyfs_fd_t unifyfs_fds[UNIFYFS_CLIENT_MAX_FILEDESCS];
 rlim_t unifyfs_fd_limit;
 
 /* array of file streams */
-unifyfs_stream_t unifyfs_streams[UNIFYFS_MAX_FILEDESCS];
+unifyfs_stream_t unifyfs_streams[UNIFYFS_CLIENT_MAX_FILEDESCS];
 
 /*
  * TODO: the number of open directories clearly won't exceed the number of file
- * descriptors. however, the current UNIFYFS_MAX_FILEDESCS value of 256 will
+ * descriptors. however, the current UNIFYFS_CLIENT_MAX_FILEDESCS value of 256 will
  * quickly run out. if this value is fixed to be reasonably larger, then we
  * would need a way to dynamically allocate the dirstreams instead of the
  * following fixed size array.
  */
 
 /* array of DIR* streams to be used */
-unifyfs_dirstream_t unifyfs_dirstreams[UNIFYFS_MAX_FILEDESCS];
+unifyfs_dirstream_t unifyfs_dirstreams[UNIFYFS_CLIENT_MAX_FILEDESCS];
 
 /* stack to track free file descriptor values,
  * each is an index into unifyfs_fds array */
@@ -357,7 +357,7 @@ inline int unifyfs_intercept_stream(FILE* stream)
      * file stream array */
     unifyfs_stream_t* ptr   = (unifyfs_stream_t*) stream;
     unifyfs_stream_t* start = &(unifyfs_streams[0]);
-    unifyfs_stream_t* end   = &(unifyfs_streams[UNIFYFS_MAX_FILEDESCS]);
+    unifyfs_stream_t* end   = &(unifyfs_streams[UNIFYFS_CLIENT_MAX_FILEDESCS]);
     if (ptr >= start && ptr < end) {
         return 1;
     }
@@ -378,7 +378,7 @@ inline int unifyfs_intercept_dirstream(DIR* dirp)
      * directory stream array */
     unifyfs_dirstream_t* ptr   = (unifyfs_dirstream_t*) dirp;
     unifyfs_dirstream_t* start = &(unifyfs_dirstreams[0]);
-    unifyfs_dirstream_t* end   = &(unifyfs_dirstreams[UNIFYFS_MAX_FILEDESCS]);
+    unifyfs_dirstream_t* end   = &(unifyfs_dirstreams[UNIFYFS_CLIENT_MAX_FILEDESCS]);
     if (ptr >= start && ptr < end) {
         return 1;
     }
@@ -460,7 +460,7 @@ int unifyfs_dirstream_init(int dirid)
 inline int unifyfs_get_fid_from_fd(int fd)
 {
     /* check that file descriptor is within range */
-    if (fd < 0 || fd >= UNIFYFS_MAX_FILEDESCS) {
+    if (fd < 0 || fd >= UNIFYFS_CLIENT_MAX_FILEDESCS) {
         return -1;
     }
 
@@ -474,7 +474,7 @@ inline int unifyfs_get_fid_from_fd(int fd)
  * of range */
 inline unifyfs_fd_t* unifyfs_get_filedesc_from_fd(int fd)
 {
-    if (fd >= 0 && fd < UNIFYFS_MAX_FILEDESCS) {
+    if (fd >= 0 && fd < UNIFYFS_CLIENT_MAX_FILEDESCS) {
         unifyfs_fd_t* filedesc = &(unifyfs_fds[fd]);
         return filedesc;
     }
@@ -1617,7 +1617,7 @@ static int unifyfs_init(void)
         }
 
         /* determine max number of files to store in file system */
-        unifyfs_max_files = UNIFYFS_MAX_FILES;
+        unifyfs_max_files = UNIFYFS_CLIENT_MAX_FILES;
         cfgval = client_cfg.client_max_files;
         if (cfgval != NULL) {
             rc = configurator_int_val(cfgval, &l);
@@ -1639,7 +1639,7 @@ static int unifyfs_init(void)
 
         /* define size of buffer used to cache key/value pairs for
          * data offsets before passing them to the server */
-        unifyfs_index_buf_size = UNIFYFS_INDEX_BUF_SIZE;
+        unifyfs_index_buf_size = UNIFYFS_CLIENT_WRITE_INDEX_SIZE;
         cfgval = client_cfg.client_write_index_size;
         if (cfgval != NULL) {
             rc = configurator_int_val(cfgval, &l);
@@ -1663,19 +1663,19 @@ static int unifyfs_init(void)
         LOGDBG("FD limit for system = %ld", unifyfs_fd_limit);
 
         /* initialize file descriptor structures */
-        int num_fds = UNIFYFS_MAX_FILEDESCS;
+        int num_fds = UNIFYFS_CLIENT_MAX_FILEDESCS;
         for (i = 0; i < num_fds; i++) {
             unifyfs_fd_init(i);
         }
 
         /* initialize file stream structures */
-        int num_streams = UNIFYFS_MAX_FILEDESCS;
+        int num_streams = UNIFYFS_CLIENT_MAX_FILEDESCS;
         for (i = 0; i < num_streams; i++) {
             unifyfs_stream_init(i);
         }
 
         /* initialize directory stream structures */
-        int num_dirstreams = UNIFYFS_MAX_FILEDESCS;
+        int num_dirstreams = UNIFYFS_CLIENT_MAX_FILEDESCS;
         for (i = 0; i < num_dirstreams; i++) {
             unifyfs_dirstream_init(i);
         }
@@ -1706,15 +1706,17 @@ static int unifyfs_init(void)
             return rc;
         }
 
+#if 0
         /* create shared memory region for holding data for read replies */
         rc = init_recv_shm();
         if (rc < 0) {
             LOGERR("failed to initialize data recv shmem");
             return UNIFYFS_FAILURE;
         }
+#endif
 
         /* initialize active_mreads arraylist */
-        active_mreads = arraylist_create(UNIFYFS_MAX_READ_CNT);
+        active_mreads = arraylist_create(UNIFYFS_CLIENT_MAX_READ_COUNT);
         if (NULL == active_mreads) {
             LOGERR("failed to create arraylist for active reads");
             return UNIFYFS_FAILURE;

@@ -376,14 +376,14 @@ extern size_t unifyfs_mount_prefixlen;
 extern char* unifyfs_cwd;
 
 /* array of file descriptors */
-extern unifyfs_fd_t unifyfs_fds[UNIFYFS_MAX_FILEDESCS];
+extern unifyfs_fd_t unifyfs_fds[UNIFYFS_CLIENT_MAX_FILEDESCS];
 extern rlim_t unifyfs_fd_limit;
 
 /* array of file streams */
-extern unifyfs_stream_t unifyfs_streams[UNIFYFS_MAX_FILEDESCS];
+extern unifyfs_stream_t unifyfs_streams[UNIFYFS_CLIENT_MAX_FILEDESCS];
 
 /* array of directory streams */
-extern unifyfs_dirstream_t unifyfs_dirstreams[UNIFYFS_MAX_FILEDESCS];
+extern unifyfs_dirstream_t unifyfs_dirstreams[UNIFYFS_CLIENT_MAX_FILEDESCS];
 
 /* stack of free file descriptor values,
  * each is an index into unifyfs_fds array */

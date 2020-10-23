@@ -647,7 +647,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
      * sends and transfer in bulks */
 
     /* check that we have enough slots for all read requests */
-    if (server_count > UNIFYFS_MAX_READ_CNT) {
+    if (server_count > UNIFYFS_CLIENT_MAX_READ_COUNT) {
         LOGERR("Too many requests to pass to server");
         if (reqs != NULL) {
             free(reqs);

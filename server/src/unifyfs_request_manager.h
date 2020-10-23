@@ -85,7 +85,7 @@ typedef struct reqmgr_thrd {
     /* array of server read requests */
     int num_read_reqs;
     int next_rdreq_ndx;
-    server_read_req_t read_reqs[RM_MAX_ACTIVE_REQUESTS];
+    server_read_req_t read_reqs[RM_MAX_SERVER_READS];
 
     /* list of client rpc requests */
     arraylist_t* client_reqs;

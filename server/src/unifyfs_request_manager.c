@@ -131,7 +131,7 @@ reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id, int client_id)
     ABT_mutex_create(&(thrd_ctrl->reqs_sync));
 
     /* allocate a list to track client rpc requests */
-    thrd_ctrl->client_reqs = arraylist_create(RM_MAX_ACTIVE_REQUESTS);
+    thrd_ctrl->client_reqs = arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
     if (thrd_ctrl->client_reqs == NULL) {
         LOGERR("failed to allocate request manager client_reqs!");
         pthread_mutex_destroy(&(thrd_ctrl->thrd_lock));
@@ -177,13 +177,13 @@ server_read_req_t* rm_reserve_read_req(reqmgr_thrd_t* thrd_ctrl)
 {
     server_read_req_t* rdreq = NULL;
     RM_REQ_LOCK(thrd_ctrl);
-    if (thrd_ctrl->num_read_reqs < RM_MAX_ACTIVE_REQUESTS) {
-        if (thrd_ctrl->next_rdreq_ndx < (RM_MAX_ACTIVE_REQUESTS - 1)) {
+    if (thrd_ctrl->num_read_reqs < RM_MAX_SERVER_READS) {
+        if (thrd_ctrl->next_rdreq_ndx < (RM_MAX_SERVER_READS - 1)) {
             rdreq = thrd_ctrl->read_reqs + thrd_ctrl->next_rdreq_ndx;
             assert((rdreq->req_ndx == 0) && (rdreq->in_use == 0));
             rdreq->req_ndx = thrd_ctrl->next_rdreq_ndx++;
         } else { // search for unused slot
-            for (int i = 0; i < RM_MAX_ACTIVE_REQUESTS; i++) {
+            for (int i = 0; i < RM_MAX_SERVER_READS; i++) {
                 rdreq = thrd_ctrl->read_reqs + i;
                 if ((rdreq->req_ndx == 0) && (rdreq->in_use == 0)) {
                     rdreq->req_ndx = i;
@@ -614,7 +614,7 @@ static int rm_request_remote_chunks(reqmgr_thrd_t* thrd_ctrl)
 
     /* iterate over each active read request */
     RM_REQ_LOCK(thrd_ctrl);
-    for (i = 0; i < RM_MAX_ACTIVE_REQUESTS; i++) {
+    for (i = 0; i < RM_MAX_SERVER_READS; i++) {
         server_read_req_t* req = thrd_ctrl->read_reqs + i;
         if (req->num_server_reads > 0) {
             LOGDBG("read req %d is active", i);
@@ -676,7 +676,7 @@ static int rm_process_remote_chunk_responses(reqmgr_thrd_t* thrd_ctrl)
     int ret = (int)UNIFYFS_SUCCESS;
 
     /* iterate over each active read request */
-    for (i = 0; i < RM_MAX_ACTIVE_REQUESTS; i++) {
+    for (i = 0; i < RM_MAX_SERVER_READS; i++) {
         server_read_req_t* req = thrd_ctrl->read_reqs + i;
         if (req->status == READREQ_STARTED) {
             if (req->num_server_reads > 0) {
@@ -1325,7 +1325,7 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
          * it with an empty list */
         LOGDBG("processing %d client requests", num_client_reqs);
         client_reqs = reqmgr->client_reqs;
-        reqmgr->client_reqs = arraylist_create(RM_MAX_ACTIVE_REQUESTS);
+        reqmgr->client_reqs = arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
     }
 
     /* release lock on reqmgr requests */
@@ -1433,7 +1433,6 @@ void* request_manager_thread(void* arg)
          * some work (rather than the dispatcher grabbing the lock
          * and assigning yet more work) */
         if (thrd_ctrl->has_waiting_dispatcher == 1) {
-            /* MJB TODO - should this be pthread_cond_broadcast() since we might have multiple requestors waiting? */
             pthread_cond_signal(&thrd_ctrl->thrd_cond);
         }
 

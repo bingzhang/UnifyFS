@@ -146,7 +146,6 @@ static void unifyfs_attach_rpc(hg_handle_t handle)
                                     in.logio_spill_dir,
                                     in.logio_spill_size,
                                     in.logio_mem_size,
-                                    in.shmem_data_size,
                                     in.shmem_super_size,
                                     in.meta_offset,
                                     in.meta_size);

@@ -555,7 +555,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
 
     if (read_rc != UNIFYFS_SUCCESS) {
         /* mark requests as failed if we couldn't even start the read(s) */
-        LOGERR("failed to issue read RPC to server");
+        LOGERR("mread RPC to server failed (rc=%d)", read_rc);
         for (i = 0; i < server_count; i++) {
             server_reqs[i].errcode = read_rc;
         }

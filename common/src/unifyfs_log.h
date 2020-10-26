@@ -32,7 +32,6 @@
 
 #include <stdio.h>
 #include <time.h>
-#include <sys/time.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -50,35 +49,16 @@ typedef enum {
 
 extern unifyfs_log_level_t unifyfs_log_level;
 extern FILE* unifyfs_log_stream;
-extern time_t unifyfs_log_time;
-extern struct tm* unifyfs_log_ltime;
-extern char unifyfs_log_timestamp[256];
 extern size_t unifyfs_log_source_base_len;
 
 pid_t unifyfs_gettid(void);
 
-#define LOG(level, ...) \
-    if (level <= unifyfs_log_level) { \
-        const char* srcfile = __FILE__ + unifyfs_log_source_base_len; \
-        unifyfs_log_time = time(NULL); \
-        unifyfs_log_ltime = localtime(&unifyfs_log_time); \
-        strftime(unifyfs_log_timestamp, sizeof(unifyfs_log_timestamp), \
-            "%Y-%m-%dT%H:%M:%S", unifyfs_log_ltime); \
-        if (NULL == unifyfs_log_stream) { \
-            unifyfs_log_stream = stderr; \
-        } \
-        fprintf(unifyfs_log_stream, "%s tid=%ld @ %s() [%s:%d] ", \
-            unifyfs_log_timestamp, (long)unifyfs_gettid(), \
-            __func__, srcfile, __LINE__); \
-        fprintf(unifyfs_log_stream, __VA_ARGS__); \
-        fprintf(unifyfs_log_stream, "\n"); \
-        fflush(unifyfs_log_stream); \
-    }
-
-#define LOGERR(...)  LOG(LOG_ERR,  __VA_ARGS__)
-#define LOGWARN(...) LOG(LOG_WARN, __VA_ARGS__)
-#define LOGINFO(...) LOG(LOG_INFO, __VA_ARGS__)
-#define LOGDBG(...)  LOG(LOG_DBG,  __VA_ARGS__)
+/* print one message to debug file stream */
+void unifyfs_log_print(time_t now,
+                       const char* srcfile,
+                       int lineno,
+                       const char* function,
+                       const char* msg);
 
 /* open specified file as debug file stream,
  * returns UNIFYFS_SUCCESS on success */
@@ -90,6 +70,23 @@ int unifyfs_log_close(void);
 
 /* set log level */
 void unifyfs_set_log_level(unifyfs_log_level_t lvl);
+
+#define LOG(level, ...) \
+    if (level <= unifyfs_log_level) { \
+        if (NULL == unifyfs_log_stream) { \
+            unifyfs_log_stream = stderr; \
+        } \
+        const char* srcfile = __FILE__ + unifyfs_log_source_base_len; \
+        time_t log_time = time(NULL); \
+        const char message[1024]; \
+        snprintf(message, sizeof(message), __VA_ARGS__); \
+        unifyfs_log_print(log_time, srcfile, __LINE__, __func__, message); \
+    }
+
+#define LOGERR(...)  LOG(LOG_ERR,  __VA_ARGS__)
+#define LOGWARN(...) LOG(LOG_WARN, __VA_ARGS__)
+#define LOGINFO(...) LOG(LOG_INFO, __VA_ARGS__)
+#define LOGDBG(...)  LOG(LOG_DBG,  __VA_ARGS__)
 
 #ifdef __cplusplus
 } // extern "C"

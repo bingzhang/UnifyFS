@@ -27,14 +27,14 @@
  * Please read https://github.com/llnl/burstfs/LICENSE for full license text.
  */
 
-#include <stdio.h>
+#include "unifyfs_const.h"
+#include "unifyfs_log.h"
+
+#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
-
-#include "unifyfs_log.h"
-#include "unifyfs_const.h"
 
 /* one of the loglevel values */
 unifyfs_log_level_t unifyfs_log_level = LOG_ERR;
@@ -79,6 +79,57 @@ int unifyfs_log_open(const char* file)
     }
 
     return (int)UNIFYFS_SUCCESS;
+}
+
+#ifndef LOGBUF_SIZE
+# define LOGBUF_SIZE 4096
+#endif
+
+static char logbuf[LOGBUF_SIZE];
+static size_t logbuf_offset; // = 0
+pthread_mutex_t logsync = PTHREAD_MUTEX_INITIALIZER;
+
+/* use log buffer page and pthread mutex to synchronize print statements */
+void unifyfs_log_print(time_t now,
+                       const char* srcfile,
+                       int lineno,
+                       const char* function,
+                       const char* msg)
+{
+    int print_to_buf = 1;
+    size_t msg_len = ;
+
+    char timestamp[64];
+    struct tm* log_ltime = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);
+
+    char line_prefix[256];
+    size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
+                                 "%s tid=%ld @ %s() [%s:%d] ",
+                                 timestamp, (long)unifyfs_gettid(),
+                                 function, srcfile, lineno);
+    size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
+    if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
+        pthread_mutex_lock(&logsync);
+        if (full_len >= LOGBUF_SIZE) {
+            /* full message length exceeds buffer size, print directly */
+            fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
+            print_to_buf = 0;
+        } else {
+            /* flush log buffer contents to log file stream */
+            fwrite(logbuf, logbuf_offset, 1, unifyfs_log_stream);
+            logbuf_offset = 0;
+            memset(logbuf, 0, LOGBUF_SIZE);
+        }
+        pthread_mutex_unlock(&logsync);
+        fflush(unifyfs_log_stream);
+    }
+    pthread_mutex_lock(&logsync);
+    if (print_to_buf) {
+        logbuf_offset += sprintf((logbuf + logbuf_offset), "%s%s\n",
+                                 line_prefix, msg);
+    }
+    pthread_mutex_unlock(&logsync);
 }
 
 /* close our log file stream.

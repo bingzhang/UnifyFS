@@ -365,7 +365,7 @@ void* service_manager_thread(void* arg)
         }
 
         /* wait an interval */
-        usleep(MIN_SLEEP_INTERVAL);
+        usleep(MIN_USLEEP_INTERVAL);
     }
 
     LOGDBG("service manager thread exiting");

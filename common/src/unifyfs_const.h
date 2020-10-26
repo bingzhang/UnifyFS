@@ -56,13 +56,11 @@
 #define SHM_WAIT_INTERVAL 1000       /* unit: ns */
 #define RM_MAX_SERVER_READS KIB
 
-// Server - Service Manager
-#define MIN_SLEEP_INTERVAL 50  /* unit: us */
-
 // Server - General
 #define MAX_BULK_TX_SIZE (8 * MIB) /* bulk transfer size (between servers) */
 #define MAX_NUM_APPS 64            /* max # apps/mountpoints supported */
 #define MAX_APP_CLIENTS 256        /* max # clients per application */
+#define MIN_USLEEP_INTERVAL 50     /* unit: us */
 #define UNIFYFS_DEFAULT_INIT_TIMEOUT 120 /* server init timeout (seconds) */
 #define UNIFYFSD_PID_FILENAME "unifyfsd.pids"
 #define UNIFYFS_STAGE_STATUS_FILENAME "unifyfs-stage.status"

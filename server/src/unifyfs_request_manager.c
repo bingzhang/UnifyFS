@@ -77,7 +77,7 @@ do { \
  * structure and impose flow control. When assigned work, the
  * request manager thread either handles the request directly, or
  * forwards requests to remote servers.
- * 
+ *
  * For read requests, the request manager waits for data chunk
  * responses and places the data into a shared memory data buffer
  * specific to the client. When the shared memory is full or all
@@ -1339,8 +1339,22 @@ void* request_manager_thread(void* arg)
         /* release lock and wait to be signaled by dispatcher */
         LOGDBG("RM[%d:%d] waiting for work",
                thrd_ctrl->app_id, thrd_ctrl->client_id);
-        pthread_cond_wait(&thrd_ctrl->thrd_cond, &thrd_ctrl->thrd_lock);
-        LOGDBG("RM[%d:%d] got work", thrd_ctrl->app_id, thrd_ctrl->client_id);
+               struct timespec timeout;
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_nsec += 10000000; /* 10 ms */
+        if (timeout.tv_nsec >= 1000000000) {
+            timeout.tv_nsec -= 1000000000;
+            timeout.tv_sec++;
+        }
+        int wait_rc = pthread_cond_timedwait(&thrd_ctrl->thrd_cond,
+                                             &thrd_ctrl->thrd_lock,
+                                             &timeout);
+        if (0 == wait_rc) {
+            LOGDBG("RM[%d:%d] got work", thrd_ctrl->app_id, thrd_ctrl->client_id);
+        } else if (ETIMEDOUT != wait_rc) {
+            LOGERR("RM[%d:%d] work condition wait failed (rc=%d)",
+                   thrd_ctrl->app_id, thrd_ctrl->client_id, wait_rc);
+        }
 
         /* set flag to indicate we're no longer waiting */
         thrd_ctrl->waiting_for_work = 0;

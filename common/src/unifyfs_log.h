@@ -58,7 +58,7 @@ void unifyfs_log_print(time_t now,
                        const char* srcfile,
                        int lineno,
                        const char* function,
-                       const char* msg);
+                       char* msg);
 
 /* open specified file as debug file stream,
  * returns UNIFYFS_SUCCESS on success */
@@ -78,7 +78,7 @@ void unifyfs_set_log_level(unifyfs_log_level_t lvl);
         } \
         const char* srcfile = __FILE__ + unifyfs_log_source_base_len; \
         time_t log_time = time(NULL); \
-        const char message[1024]; \
+        char message[1024]; \
         snprintf(message, sizeof(message), __VA_ARGS__); \
         unifyfs_log_print(log_time, srcfile, __LINE__, __func__, message); \
     }

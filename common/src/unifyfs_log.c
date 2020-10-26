@@ -91,10 +91,10 @@ pthread_mutex_t logsync = PTHREAD_MUTEX_INITIALIZER;
 
 /* use log buffer page and pthread mutex to synchronize print statements */
 void unifyfs_log_print(time_t now,
-                       const char* srcfile,
+                       const har* srcfile,
                        int lineno,
                        const char* function,
-                       const char* msg)
+                       char* msg)
 {
     int print_to_buf = 1;
     size_t msg_len = ;

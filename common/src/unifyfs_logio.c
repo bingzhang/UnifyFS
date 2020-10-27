@@ -132,10 +132,11 @@ static void* map_spillfile(int spill_fd, int mmap_prot)
 {
     size_t pgsz = get_page_size();
     void* addr = mmap(NULL, pgsz, mmap_prot, MAP_SHARED, spill_fd, 0);
-    if (NULL == addr) {
+    if (MAP_FAILED == addr) {
         int err = errno;
         LOGERR("mmap(fd=%d, sz=%zu, MAP_SHARED) failed - %s",
                spill_fd, pgsz, strerror(err));
+        return NULL;
     }
     return addr;
 }

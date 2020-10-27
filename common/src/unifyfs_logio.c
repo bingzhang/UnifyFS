@@ -50,11 +50,13 @@ slot_map* log_header_to_chunkmap(log_header* hdr)
 }
 
 /* method to get page size once, then re-use it */
-static size_t page_sz; // = 0
+
 size_t get_page_size(void)
 {
+    static size_t page_sz = 0;
     if (0 == page_sz) {
-        page_sz = (size_t) getpagesize();
+        long sz = sysconf(_SC_PAGESIZE);
+        page_sz = (size_t) sz;
     }
     return page_sz;
 }

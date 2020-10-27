@@ -1529,7 +1529,7 @@ static int unifyfs_init(void)
         }
 
         /* look up page size for buffer alignment */
-        unifyfs_page_size = getpagesize();
+        unifyfs_page_size = get_page_size();
 
         /* compute min and max off_t values */
         bits = sizeof(off_t) * 8;

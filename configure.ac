@@ -71,7 +71,7 @@ AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([ftruncate getpagesize gettimeofday memset socket floor])
+AC_CHECK_FUNCS([ftruncate gettimeofday memset socket floor])
 AC_CHECK_FUNCS([gethostbyname strcasecmp strdup strerror strncasecmp strrchr])
 AC_CHECK_FUNCS([gethostname strstr strtoumax strtol uname posix_fallocate])
 

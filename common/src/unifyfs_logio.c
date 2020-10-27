@@ -57,6 +57,7 @@ size_t get_page_size(void)
     if (0 == page_sz) {
         long sz = sysconf(_SC_PAGESIZE);
         page_sz = (size_t) sz;
+        LOGDBG("set system page size to %zu B", page_sz);
     }
     return page_sz;
 }

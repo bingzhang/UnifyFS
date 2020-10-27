@@ -53,13 +53,13 @@ client_mread_status* client_create_mread_request(int n_reads,
 int client_remove_mread_request(client_mread_status* mread);
 
 /* Retrieve the mread request corresponding to the given request_id */
-client_mread_status* client_get_mread_status(int request_id);
+client_mread_status* client_get_mread_status(unsigned request_id);
 
 /* Update the mread status for the request at the given req_index.
  * If the request is now complete, update the request's completion state
  * (i.e., errcode and nread) */
 int client_update_mread_request(client_mread_status* mread,
-                                int req_index,
+                                unsigned req_index,
                                 int req_complete,
                                 int req_error);
 

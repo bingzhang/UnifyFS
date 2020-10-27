@@ -30,15 +30,15 @@ static void debug_print_read_req(read_req_t* req)
 arraylist_t* active_mreads; // = NULL
 
 /* use to generated unique ids for each new mread */
-static int id_generator; // = 0
+static unsigned id_generator; // = 0
 
 /* compute the arraylist index for the given request id. we use
  * modulo operator to reuse slots in the list */
 static inline
-int id_to_list_index(int id)
+unsigned id_to_list_index(unsigned id)
 {
-    int list_capacity = arraylist_capacity(active_mreads);
-    return id % list_capacity;
+    unsigned capacity = (unsigned) arraylist_capacity(active_mreads);
+    return id % capacity;
 }
 
 /* Create a new mread request containing the n_reads requests provided
@@ -59,10 +59,10 @@ client_mread_status* client_create_mread_request(int n_reads,
     }
 
     /* generate an id that doesn't conflict with another active mread */
-    int mread_id, req_ndx;
+    unsigned mread_id, req_ndx;
     void* existing;
     do {
-        mread_id = ++id_generator;
+        mread_id = id_generator++;
         req_ndx = id_to_list_index(mread_id);
         existing = arraylist_get(active_mreads, req_ndx);
     } while (existing != NULL);
@@ -73,7 +73,7 @@ client_mread_status* client_create_mread_request(int n_reads,
         return NULL;
     }
 
-    int rc = arraylist_insert(active_mreads, req_ndx, (void*)mread);
+    int rc = arraylist_insert(active_mreads, (int)req_ndx, (void*)mread);
     if (rc != 0) {
         free(mread);
         return NULL;
@@ -81,7 +81,7 @@ client_mread_status* client_create_mread_request(int n_reads,
 
     mread->id = mread_id;
     mread->reqs = read_reqs;
-    mread->n_reads = n_reads;
+    mread->n_reads = (unsigned) n_reads;
     ABT_mutex_create(&(mread->sync));
 
     rc = pthread_mutex_init(&(mread->mutex), NULL);
@@ -100,25 +100,51 @@ client_mread_status* client_create_mread_request(int n_reads,
     return mread;
 }
 
+/* Remove the mread status */
+int client_remove_mread_request(client_mread_status* mread)
+{
+    if (NULL == active_mreads) {
+        LOGERR("active_mreads is NULL");
+        return EINVAL;
+    }
+    if (NULL == mread) {
+        LOGERR("mread is NULL");
+        return EINVAL;
+    }
+
+    int list_index = (int) id_to_list_index(mread->id);
+    void* list_item = arraylist_remove(active_mreads, list_index);
+    if (list_item == (void*)mread) {
+        ABT_mutex_free(&(mread->sync));
+        pthread_cond_destroy(&(mread->completed));
+        pthread_mutex_destroy(&(mread->mutex));
+        free(mread);
+        return UNIFYFS_SUCCESS;
+    } else {
+        LOGERR("mismatch on active_mreads index=%d", list_index);
+        return UNIFYFS_FAILURE;
+    }
+}
+
 /* Retrieve the mread request corresponding to the given mread_id. */
-client_mread_status* client_get_mread_status(int mread_id)
+client_mread_status* client_get_mread_status(unsigned mread_id)
 {
     if (NULL == active_mreads) {
         LOGERR("active_mreads is NULL");
         return NULL;
     }
 
-    int list_index = id_to_list_index(mread_id);
+    int list_index = (int) id_to_list_index(mread_id);
     void* list_item = arraylist_get(active_mreads, list_index);
     client_mread_status* status = (client_mread_status*)list_item;
     if (NULL != status) {
         if (status->id != mread_id) {
-            LOGERR("mismatch on mread id=%d - status at index %d has id=%d",
+            LOGERR("mismatch on mread id=%u - status at index %d has id=%u",
                    mread_id, list_index, status->id);
             status = NULL;
         }
     } else {
-        LOGERR("lookup of mread status for id=%d failed", mread_id);
+        LOGERR("lookup of mread status for id=%u failed", mread_id);
     }
     return status;
 }
@@ -127,15 +153,21 @@ client_mread_status* client_get_mread_status(int mread_id)
  * If the request is now complete, update the request's completion state
  * (i.e., errcode and nread) */
 int client_update_mread_request(client_mread_status* mread,
-                                int req_index,
+                                unsigned req_index,
                                 int req_complete,
                                 int req_error)
 {
     int ret = UNIFYFS_SUCCESS;
 
-    LOGDBG("updating mread[%d] status for request %d", mread->id, req_index);
+    if (NULL == mread) {
+        LOGERR("mread is NULL");
+        return EINVAL;
+    }
+
     ABT_mutex_lock(mread->sync);
     if (req_index < mread->n_reads) {
+        LOGDBG("updating mread[%u] status for request %u",
+               mread->id, req_index);
         read_req_t* rdreq = mread->reqs + req_index;
         if (req_complete) {
             mread->n_complete++;
@@ -148,7 +180,7 @@ int client_update_mread_request(client_mread_status* mread,
             }
         }
     } else {
-        LOGERR("invalid read request index %d (mread[%d] has %d reqs)",
+        LOGERR("invalid read request index %u (mread[%u] has %u reqs)",
                req_index, mread->id, mread->n_reads);
         ret = EINVAL;
     }
@@ -158,7 +190,7 @@ int client_update_mread_request(client_mread_status* mread,
 
     if (complete) {
         /* Signal client thread waiting on mread completion */
-        LOGDBG("mread[%d] signaling completion of %d requests",
+        LOGDBG("mread[%u] signaling completion of %u requests",
                mread->id, mread->n_reads);
         pthread_cond_signal(&(mread->completed));
     }
@@ -445,8 +477,7 @@ int compare_read_req(const void* a, const void* b)
  */
 int process_gfid_reads(read_req_t* in_reqs, int in_count)
 {
-    int i;
-    int read_rc;
+    int i, rc, read_rc;
 
     /* assume we'll succeed */
     int ret = UNIFYFS_SUCCESS;
@@ -546,7 +577,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
         ext->length = req->length;
     }
 
-    LOGDBG("mread[%d]: n_reqs=%d, reqs(%p)",
+    LOGDBG("mread[%u]: n_reqs=%d, reqs(%p)",
            mread_id, server_count, server_reqs);
 
     /* invoke multi-read rpc on server */
@@ -563,7 +594,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
     } else {
         /* wait for all requests to finish by blocking on mread
          * completion condition (with a reasonable timeout) */
-        LOGDBG("waiting for completion of mread[%d]", mread->id);
+        LOGDBG("waiting for completion of mread[%u]", mread->id);
         pthread_mutex_lock(&(mread->mutex));
         struct timespec timeout;
         clock_gettime(CLOCK_REALTIME, &timeout);
@@ -572,7 +603,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
                                              &(mread->mutex), &timeout);
         if (wait_rc) {
             if (ETIMEDOUT == wait_rc) {
-                LOGERR("mread[%d] timed out", mread->id);
+                LOGERR("mread[%u] timed out", mread->id);
                 for (i = 0; i < server_count; i++) {
                     if (EINPROGRESS == server_reqs[i].errcode) {
                         server_reqs[i].errcode = wait_rc;
@@ -582,7 +613,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
             }
             ret = wait_rc;
         }
-        LOGDBG("mread[%d] wait completed (rc=%d) - %d requests, %d errors",
+        LOGDBG("mread[%u] wait completed (rc=%d) - %u requests, %u errors",
                mread->id, wait_rc, mread->n_reads, mread->n_error);
         pthread_mutex_unlock(&(mread->mutex));
     }
@@ -592,7 +623,7 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
     for (i = 0; i < server_count; i++) {
         /* get pointer to next read request */
         read_req_t* req = server_reqs + i;
-        LOGDBG("mread[%d] server request %d:", mread->id, i);
+        LOGDBG("mread[%u] server request %d:", mread->id, i);
         debug_print_read_req(req);
 
         /* no error message was received from server, assume success */
@@ -683,6 +714,11 @@ int process_gfid_reads(read_req_t* in_reqs, int in_count)
             free(reqs);
             reqs = NULL;
         }
+    }
+
+    rc = client_remove_mread_request(mread);
+    if (rc != UNIFYFS_SUCCESS) {
+        LOGERR("mread[%u] cleanup failed", mread_id);
     }
 
     return ret;

@@ -49,6 +49,9 @@ extern arraylist_t* active_mreads;
 client_mread_status* client_create_mread_request(int n_reads,
                                                  read_req_t* read_reqs);
 
+/* Remove the mread status */
+int client_remove_mread_request(client_mread_status* mread);
+
 /* Retrieve the mread request corresponding to the given request_id */
 client_mread_status* client_get_mread_status(int request_id);
 

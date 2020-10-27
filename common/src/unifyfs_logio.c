@@ -206,6 +206,9 @@ int unifyfs_logio_init_server(const int app_id,
         ctx->spill_file = strdup(spillfile);
     }
     *pctx = ctx;
+    LOGDBG("logio_context for client [%d:%d] - "
+           "shmem(sz=%zu, hdr=%p), spill(sz=%zu, hdr=%p)",
+           app_id, client_id, mem_size, shm_ctx, spill_size, spill_mapping);
 
     return UNIFYFS_SUCCESS;
 }

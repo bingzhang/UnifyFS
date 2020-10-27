@@ -689,6 +689,8 @@ int unifyfs_logio_read(logio_context* ctx,
     off_t spill_offset = 0;
     get_log_sizes(log_offset, nbytes, mem_size,
                   &sz_in_mem, &sz_in_spill, &spill_offset);
+    LOGDBG("log_off=%zu, nbytes=%zu : mem_sz=%zu spill_sz=%zu spill_off=%zu",
+           log_offset, nbytes, sz_in_mem, sz_in_spill, (size_t)spill_offset);
 
     /* do reads */
     int err_rc = 0;

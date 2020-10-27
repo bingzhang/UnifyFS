@@ -50,7 +50,6 @@ slot_map* log_header_to_chunkmap(log_header* hdr)
 }
 
 /* method to get page size once, then re-use it */
-
 size_t get_page_size(void)
 {
     static size_t page_sz = 0;
@@ -59,6 +58,7 @@ size_t get_page_size(void)
         page_sz = (size_t) sz;
         LOGDBG("set system page size to %zu B", page_sz);
     }
+    LOGDBG("returning page size %zu B", page_sz);
     return page_sz;
 }
 
@@ -134,6 +134,7 @@ static int get_spillfile(const char* path,
 static void* map_spillfile(int spill_fd, int mmap_prot)
 {
     size_t pgsz = get_page_size();
+    LOGDBG("mapping spillfile - fd=%d, pgsz=%zu", spill_fd, pgsz);
     void* addr = mmap(NULL, pgsz, mmap_prot, MAP_SHARED, spill_fd, 0);
     if (MAP_FAILED == addr) {
         int err = errno;

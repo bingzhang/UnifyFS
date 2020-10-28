@@ -50,14 +50,20 @@ slot_map* log_header_to_chunkmap(log_header* hdr)
 }
 
 /* method to get page size once, then re-use it */
+static long unifyfs_page_size; // = 0
 size_t get_page_size(void)
 {
-    static size_t page_sz = 0;
-    if (0 == page_sz) {
+    if (0 == unifyfs_page_size) {
         long sz = sysconf(_SC_PAGESIZE);
-        page_sz = (size_t) sz;
-        LOGDBG("set system page size to %zu B", page_sz);
+        if (sz != -1) {
+            unifyfs_page_size = sz;
+            LOGDBG("set system page size to %ld B", unifyfs_page_size);
+        } else {
+            LOGERR("sysconf(_SC_PAGESIZE) failed - errno=%d (%s)",
+                   errno, strerror(errno));
+        }
     }
+    size_t page_sz = (size_t) unifyfs_page_size;
     LOGDBG("returning page size %zu B", page_sz);
     return page_sz;
 }

@@ -2206,7 +2206,7 @@ int unifyfs_transfer_file(const char* src, const char* dst, int parallel)
     struct stat sb_dst = { 0, };
     int unify_src = 0;
     int unify_dst = 0;
-    char dst_path[PATH_MAX] = { 0, };
+    char dst_path[UNIFYFS_MAX_FILENAME] = { 0, };
     char* pos = dst_path;
     char* src_path = strdup(src);
 

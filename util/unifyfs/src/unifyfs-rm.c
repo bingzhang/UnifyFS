@@ -207,13 +207,13 @@ static int wait_server_initialization(unifyfs_resource_t* resource,
     unsigned int wait_time = 0;
     FILE* fp = NULL;
     char linebuf[32];
-    char filename[PATH_MAX];
+    char filename[UNIFYFS_MAX_FILENAME];
     int return_val_from_scnprintf;
 
     return_val_from_scnprintf =
-        scnprintf(filename, PATH_MAX,
-                  "%s/%s", args->share_dir, UNIFYFSD_PID_FILENAME);
-    if (return_val_from_scnprintf > (PATH_MAX - 2)) {
+        scnprintf(filename, sizeof(filename), "%s/%s",
+                  args->share_dir, UNIFYFSD_PID_FILENAME);
+    if (return_val_from_scnprintf > (sizeof(filename) - 2)) {
         fprintf(stderr, "Unifyfs status filename is too long!\n");
         return -ENOMEM;
     }
@@ -286,14 +286,14 @@ int wait_stage(unifyfs_resource_t* resource, unifyfs_args_t* args)
     unsigned int timeout = 0;
     FILE* fp = NULL;
     const char* manifest_file = NULL;
-    char filename[PATH_MAX];
+    char filename[UNIFYFS_MAX_FILENAME];
     char linebuf[16];
     int return_val_from_scnprintf;
 
     return_val_from_scnprintf =
-        scnprintf(filename, PATH_MAX,
-                  "%s/%s", args->share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
-    if (return_val_from_scnprintf > (PATH_MAX - 2)) {
+        scnprintf(filename, sizeof(filename), "%s/%s",
+                  args->share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
+    if (return_val_from_scnprintf > (sizeof(filename) - 2)) {
         fprintf(stderr, "Unifyfs status filename is too long!\n");
         return -ENOMEM;
     }
@@ -352,13 +352,13 @@ int wait_stage(unifyfs_resource_t* resource, unifyfs_args_t* args)
 static int remove_server_pid_file(unifyfs_args_t* args)
 {
     int ret = 0;
-    char filename[PATH_MAX];
+    char filename[UNIFYFS_MAX_FILENAME];
     int return_val_from_scnprintf;
 
     return_val_from_scnprintf =
-        scnprintf(filename, PATH_MAX,
-                  "%s/%s", args->share_dir, UNIFYFSD_PID_FILENAME);
-    if (return_val_from_scnprintf > (PATH_MAX - 2)) {
+        scnprintf(filename, sizeof(filename), "%s/%s",
+                  args->share_dir, UNIFYFSD_PID_FILENAME);
+    if (return_val_from_scnprintf > (sizeof(filename) - 2)) {
         fprintf(stderr, "Unifyfs status filename is too long!\n");
         return -ENOMEM;
     }
@@ -386,13 +386,13 @@ static int remove_server_pid_file(unifyfs_args_t* args)
 static int remove_stage_status_file(unifyfs_args_t* args)
 {
     int ret = 0;
-    char filename[PATH_MAX];
+    char filename[UNIFYFS_MAX_FILENAME];
     int return_val_from_scnprintf;
 
     return_val_from_scnprintf =
-        scnprintf(filename, PATH_MAX,
-                  "%s/%s", args->share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
-    if (return_val_from_scnprintf > (PATH_MAX - 2)) {
+        scnprintf(filename, sizeof(filename), "%s/%s",
+                  args->share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
+    if (return_val_from_scnprintf > (sizeof(filename) - 2)) {
         fprintf(stderr, "Unifyfs stage status filename is too long!\n");
         return -ENOMEM;
     }

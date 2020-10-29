@@ -76,15 +76,15 @@ static unifyfs_stage_t _ctx;
  */
 static int create_status_file(int status)
 {
-    char filename[PATH_MAX];
+    char filename[UNIFYFS_MAX_FILENAME];
     FILE* fp = NULL;
     const char* msg = status ? "fail" : "success";
     int return_val_from_scnprintf;
 
     return_val_from_scnprintf =
-        scnprintf(filename, PATH_MAX,
-                  "%s/%s", share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
-    if (return_val_from_scnprintf > (PATH_MAX - 1)) {
+        scnprintf(filename, sizeof(filename), "%s/%s",
+                  share_dir, UNIFYFS_STAGE_STATUS_FILENAME);
+    if (return_val_from_scnprintf > (sizeof(filename) - 1)) {
         fprintf(stderr, "Stage status file is too long!\n");
         return -ENOMEM;
     }

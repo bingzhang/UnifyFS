@@ -70,9 +70,12 @@ libunifyfs_common_la_CPPFLAGS = \
 libunifyfs_common_la_CPPFLAGS += -DSYSCONFDIR="$(sysconfdir)"
 
 libunifyfs_common_la_LDFLAGS = \
+  $(ARGOBOTS_LDFLAGS) \
   -version-info $(LIBUNIFYFS_LT_VERSION)
 
 libunifyfs_common_la_LIBADD = \
-  $(OPT_LIBS) -lm -lrt -lcrypto -lpthread
+  $(OPT_LIBS) \
+  $(ARGOBOTS_LIBS) \
+  -lm -lrt -lcrypto -lpthread
 
 AM_CFLAGS = -Wall -Werror -Wno-strict-aliasing

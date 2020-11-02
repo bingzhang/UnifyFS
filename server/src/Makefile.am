@@ -66,7 +66,7 @@ else # ! USE_MDHIM
 endif # USE_MDHIM
 
 
-unifyfsd_LDFLAGS = -static \
+unifyfsd_LDFLAGS = \
   $(OPT_LD_FLAGS) \
   $(MARGO_LDFLAGS)
 

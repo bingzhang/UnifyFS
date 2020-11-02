@@ -30,7 +30,8 @@
 #include "unifyfs_const.h"
 #include "unifyfs_log.h"
 
-#include <pthread.h>
+#include <argobots.h>
+//#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -51,6 +52,17 @@ char unifyfs_log_timestamp[256];
 size_t unifyfs_log_source_base_len; // = 0
 static const char* this_file = __FILE__;
 
+/* logbuf accumulates log messages until full, then
+ * we flush it to log stream */
+#ifndef LOGBUF_SIZE
+# define LOGBUF_SIZE 4096
+#endif
+
+static char logbuf[LOGBUF_SIZE];
+static size_t logbuf_offset; // = 0
+//pthread_mutex_t logsync = PTHREAD_MUTEX_INITIALIZER;
+ABT_mutex logsync;
+
 /* open specified file as log file stream,
  * or stderr if no file given.
  * returns UNIFYFS_SUCCESS on success */
@@ -67,6 +79,8 @@ int unifyfs_log_open(const char* file)
     if (NULL == unifyfs_log_stream) {
         /* stderr is the default log stream */
         unifyfs_log_stream = stderr;
+
+        ABT_mutex_create(&logsync);
     }
 
     if (NULL != file) {
@@ -81,13 +95,6 @@ int unifyfs_log_open(const char* file)
     return (int)UNIFYFS_SUCCESS;
 }
 
-#ifndef LOGBUF_SIZE
-# define LOGBUF_SIZE 4096
-#endif
-
-static char logbuf[LOGBUF_SIZE];
-static size_t logbuf_offset; // = 0
-pthread_mutex_t logsync = PTHREAD_MUTEX_INITIALIZER;
 
 /* use log buffer page and pthread mutex to synchronize print statements */
 void unifyfs_log_print(time_t now,
@@ -109,7 +116,8 @@ void unifyfs_log_print(time_t now,
                                  function, srcfile, lineno);
     size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
     if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
-        pthread_mutex_lock(&logsync);
+        //pthread_mutex_lock(&logsync);
+        ABT_mutex_lock(logsync);
         if (full_len >= LOGBUF_SIZE) {
             /* full message length exceeds buffer size, print directly */
             fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
@@ -120,15 +128,18 @@ void unifyfs_log_print(time_t now,
             logbuf_offset = 0;
             memset(logbuf, 0, LOGBUF_SIZE);
         }
-        pthread_mutex_unlock(&logsync);
+        //pthread_mutex_unlock(&logsync);
+        ABT_mutex_unlock(logsync);
         fflush(unifyfs_log_stream);
     }
-    pthread_mutex_lock(&logsync);
     if (print_to_buf) {
+        //pthread_mutex_lock(&logsync);
+        ABT_mutex_lock(logsync);
         logbuf_offset += sprintf((logbuf + logbuf_offset), "%s%s\n",
                                  line_prefix, msg);
+        //pthread_mutex_unlock(&logsync);
+        ABT_mutex_unlock(logsync);
     }
-    pthread_mutex_unlock(&logsync);
 }
 
 /* close our log file stream.
@@ -143,7 +154,9 @@ int unifyfs_log_close(void)
             /* revert to stderr for any future log messages */
             unifyfs_log_stream = stderr;
         }
+        ABT_mutex_free(&logsync);
     }
+
     return (int)UNIFYFS_SUCCESS;
 }
 

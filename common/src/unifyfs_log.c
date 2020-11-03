@@ -96,6 +96,7 @@ int unifyfs_log_open(const char* file)
     return (int)UNIFYFS_SUCCESS;
 }
 
+static const char* null_func = "?func?";
 
 /* use log buffer page and pthread mutex to synchronize print statements */
 void unifyfs_log_print(time_t now,
@@ -111,11 +112,18 @@ void unifyfs_log_print(time_t now,
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);
 
     char line_prefix[256];
-    char* file = (char*)srcfile + unifyfs_log_source_base_len;
+    char* file = (char*)srcfile;
+    char* func = (char*)function;
+    if (NULL != file) {
+        file += unifyfs_log_source_base_len;
+    }
+    if (NULL == func) {
+        func = (char*) null_func;
+    }
     size_t strings_len = strlen(file);
     strings_len += strlen(timestamp);
     strings_len += strlen(function);
-    assert(strings_len < 256);
+    assert(strings_len < sizeof(line_prefix));
     size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
                                  "%s tid=%ld @ %s() [%s:%d] ",
                                  timestamp, (long)unifyfs_gettid(),

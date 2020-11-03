@@ -49,7 +49,7 @@ struct tm* unifyfs_log_ltime;
 char unifyfs_log_timestamp[256];
 
 /* used to reduce source file pathname length */
-size_t unifyfs_log_source_base_len; // = 0
+int unifyfs_log_source_base_len; // = 0
 static const char* this_file = __FILE__;
 
 /* logbuf accumulates log messages until full, then
@@ -110,35 +110,38 @@ void unifyfs_log_print(time_t now,
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);
 
     char line_prefix[256];
+    char* file = (char*)srcfile + unifyfs_log_source_base_len;
+    size_t strings_len = strlen(file) + strlen(timestamp) + strlen(function);
+    assert(strings_len < 256);
     size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
                                  "%s tid=%ld @ %s() [%s:%d] ",
                                  timestamp, (long)unifyfs_gettid(),
                                  function, srcfile, lineno);
     size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
     if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
-        //pthread_mutex_lock(&logsync);
-        ABT_mutex_lock(logsync);
         if (full_len >= LOGBUF_SIZE) {
             /* full message length exceeds buffer size, print directly */
             fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
             print_to_buf = 0;
         } else {
             /* flush log buffer contents to log file stream */
+            //pthread_mutex_lock(&logsync);
+            //ABT_mutex_lock(logsync);
             fwrite(logbuf, logbuf_offset, 1, unifyfs_log_stream);
             logbuf_offset = 0;
             memset(logbuf, 0, LOGBUF_SIZE);
+            //pthread_mutex_unlock(&logsync);
+            //ABT_mutex_unlock(logsync);
         }
-        //pthread_mutex_unlock(&logsync);
-        ABT_mutex_unlock(logsync);
         fflush(unifyfs_log_stream);
     }
     if (print_to_buf) {
         //pthread_mutex_lock(&logsync);
-        ABT_mutex_lock(logsync);
+        //ABT_mutex_lock(logsync);
         logbuf_offset += sprintf((logbuf + logbuf_offset), "%s%s\n",
                                  line_prefix, msg);
         //pthread_mutex_unlock(&logsync);
-        ABT_mutex_unlock(logsync);
+        //ABT_mutex_unlock(logsync);
     }
 }
 

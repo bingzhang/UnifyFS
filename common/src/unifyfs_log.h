@@ -49,7 +49,6 @@ typedef enum {
 
 extern unifyfs_log_level_t unifyfs_log_level;
 extern FILE* unifyfs_log_stream;
-extern size_t unifyfs_log_source_base_len;
 
 pid_t unifyfs_gettid(void);
 
@@ -76,7 +75,7 @@ void unifyfs_set_log_level(unifyfs_log_level_t lvl);
         if (NULL == unifyfs_log_stream) { \
             unifyfs_log_stream = stderr; \
         } \
-        const char* srcfile = __FILE__ + unifyfs_log_source_base_len; \
+        const char* srcfile = __FILE__; \
         time_t log_time = time(NULL); \
         char message[4096]; \
         snprintf(message, sizeof(message), __VA_ARGS__); \

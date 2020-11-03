@@ -32,6 +32,7 @@
 
 #include <abt.h>
 //#include <pthread.h>
+#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>

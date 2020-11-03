@@ -58,13 +58,13 @@ do { \
 
 #define RM_REQ_LOCK(rm) \
 do { \
-    LOGDBG("locking RM[%d:%d] requests", rm->app_id, rm->client_id); \
+    /*LOGDBG("locking RM[%d:%d] requests", rm->app_id, rm->client_id);*/ \
     ABT_mutex_lock(rm->reqs_sync); \
 } while (0)
 
 #define RM_REQ_UNLOCK(rm) \
 do { \
-    LOGDBG("unlocking RM[%d:%d] requests", rm->app_id, rm->client_id); \
+    /*LOGDBG("unlocking RM[%d:%d] requests", rm->app_id, rm->client_id);*/ \
     ABT_mutex_unlock(rm->reqs_sync); \
 } while (0)
 

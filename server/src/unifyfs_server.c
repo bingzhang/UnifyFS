@@ -326,6 +326,9 @@ int main(int argc, char* argv[])
         LOGERR("%s", unifyfs_rc_enum_description((unifyfs_rc)rc));
     }
 
+    // print config
+    unifyfs_config_print(&server_cfg, unifyfs_log_stream);
+
     if (NULL != server_cfg.server_hostfile) {
         rc = process_servers_hostfile(server_cfg.server_hostfile);
         if (rc != (int)UNIFYFS_SUCCESS) {

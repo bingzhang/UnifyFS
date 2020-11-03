@@ -281,6 +281,9 @@ int main(int argc, char* argv[])
 
     server_pid = getpid();
 
+    /* must do this before using LOG() */
+    ABT_init(argc, argv);
+
     /* unifyfs default log level is LOG_ERR */
     if (server_cfg.log_verbosity != NULL) {
         long l;
@@ -360,7 +363,6 @@ int main(int argc, char* argv[])
     }
 
     LOGDBG("initializing rpc service");
-    ABT_init(argc, argv);
     ABT_mutex_create(&app_configs_abt_sync);
     rc = configurator_bool_val(server_cfg.margo_tcp, &margo_use_tcp);
     rc = margo_server_rpc_init();

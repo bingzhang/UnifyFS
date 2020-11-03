@@ -119,7 +119,7 @@ void unifyfs_log_print(time_t now,
     size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
                                  "%s tid=%ld @ %s() [%s:%d] ",
                                  timestamp, (long)unifyfs_gettid(),
-                                 function, srcfile, lineno);
+                                 function, file, lineno);
     size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
     if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
         if (full_len >= LOGBUF_SIZE) {

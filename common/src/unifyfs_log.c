@@ -115,7 +115,7 @@ void unifyfs_log_print(time_t now,
     char* file = (char*)srcfile;
     char* func = (char*)function;
     if (NULL != file) {
-        file += unifyfs_log_source_base_len;
+        //file += unifyfs_log_source_base_len;
     }
     if (NULL == func) {
         func = (char*) null_func;

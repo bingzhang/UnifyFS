@@ -112,7 +112,9 @@ void unifyfs_log_print(time_t now,
 
     char line_prefix[256];
     char* file = (char*)srcfile + unifyfs_log_source_base_len;
-    size_t strings_len = strlen(file) + strlen(timestamp) + strlen(function);
+    size_t strings_len = strlen(file);
+    strings_len += strlen(timestamp);
+    strings_len += strlen(function);
     assert(strings_len < 256);
     size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
                                  "%s tid=%ld @ %s() [%s:%d] ",

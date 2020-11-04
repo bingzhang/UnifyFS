@@ -46,13 +46,13 @@
 
 #define RM_LOCK(rm) \
 do { \
-    LOGDBG("locking RM[%d:%d] state", rm->app_id, rm->client_id); \
+    /*LOGDBG("locking RM[%d:%d] state", rm->app_id, rm->client_id);*/ \
     pthread_mutex_lock(&(rm->thrd_lock)); \
 } while (0)
 
 #define RM_UNLOCK(rm) \
 do { \
-    LOGDBG("unlocking RM[%d:%d] state", rm->app_id, rm->client_id); \
+    /*LOGDBG("unlocking RM[%d:%d] state", rm->app_id, rm->client_id);*/ \
     pthread_mutex_unlock(&(rm->thrd_lock)); \
 } while (0)
 
@@ -260,6 +260,7 @@ static void signal_new_requests(reqmgr_thrd_t* reqmgr)
         }
         /* have a reqmgr thread waiting on condition variable,
         * signal it to begin processing the requests we just added */
+        LOGDBG("signaling new requests");
         pthread_cond_signal(&reqmgr->thrd_cond);
     }
     RM_UNLOCK(reqmgr);
@@ -274,6 +275,7 @@ static void signal_new_responses(reqmgr_thrd_t* reqmgr)
         if (reqmgr->waiting_for_work) {
             /* have a reqmgr thread waiting on condition variable,
             * signal it to begin processing the responses we just added */
+            LOGDBG("signaling new responses");
             pthread_cond_signal(&reqmgr->thrd_cond);
         }
     }
@@ -1354,9 +1356,6 @@ void* request_manager_thread(void* arg)
      * with main thread, new items inserted by the rpc handler */
     int rc;
     while (1) {
-        /* grab lock */
-        RM_LOCK(thrd_ctrl);
-
         /* process any client requests */
         rc = rm_process_client_requests(thrd_ctrl);
         if (rc != UNIFYFS_SUCCESS) {
@@ -1374,6 +1373,9 @@ void* request_manager_thread(void* arg)
         if (rc != UNIFYFS_SUCCESS) {
             LOGERR("failed to process remote chunk responses");
         }
+
+        /* grab lock */
+        RM_LOCK(thrd_ctrl);
 
         /* inform dispatcher that we're waiting for work
          * inside the critical section */

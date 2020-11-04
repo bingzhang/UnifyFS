@@ -131,7 +131,8 @@ reqmgr_thrd_t* unifyfs_rm_thrd_create(int app_id, int client_id)
     ABT_mutex_create(&(thrd_ctrl->reqs_sync));
 
     /* allocate a list to track client rpc requests */
-    thrd_ctrl->client_reqs = arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
+    thrd_ctrl->client_reqs =
+        arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
     if (thrd_ctrl->client_reqs == NULL) {
         LOGERR("failed to allocate request manager client_reqs!");
         pthread_mutex_destroy(&(thrd_ctrl->thrd_lock));
@@ -898,6 +899,53 @@ int rm_submit_client_rpc_request(unifyfs_fops_ctx_t* ctx,
     return UNIFYFS_SUCCESS;
 }
 
+static int process_attach_rpc(reqmgr_thrd_t* reqmgr,
+                              client_rpc_req_t* req)
+{
+    int ret = UNIFYFS_SUCCESS;
+
+    unifyfs_attach_in_t* in = req->input;
+    assert(in != NULL);
+
+    /* lookup client structure and attach it */
+    int app_id = reqmgr->app_id;
+    int client_id = reqmgr->client_id;
+    app_client* client = get_app_client(app_id, client_id);
+    if (NULL != client) {
+        LOGDBG("attaching client %d:%d", app_id, client_id);
+        ret = attach_app_client(client,
+                                in->logio_spill_dir,
+                                in->logio_spill_size,
+                                in->logio_mem_size,
+                                in->shmem_super_size,
+                                in->meta_offset,
+                                in->meta_size);
+        if (ret != UNIFYFS_SUCCESS) {
+            LOGERR("attach_app_client() failed");
+        }
+    } else {
+        LOGERR("client not found (app_id=%d, client_id=%d)",
+            app_id, client_id);
+        ret = (int)UNIFYFS_FAILURE;
+    }
+
+    margo_free_input(req->handle, in);
+    free(in);
+
+    /* send rpc response */
+    unifyfs_attach_out_t out;
+    out.ret = (int32_t) ret;
+    hg_return_t hret = margo_respond(req->handle, &out);
+    if (hret != HG_SUCCESS) {
+        LOGERR("margo_respond() failed");
+    }
+
+    /* cleanup req */
+    margo_destroy(req->handle);
+
+    return ret;
+}
+
 static int process_filesize_rpc(reqmgr_thrd_t* reqmgr,
                                 client_rpc_req_t* req)
 {
@@ -1225,7 +1273,8 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
          * it with an empty list */
         LOGDBG("processing %d client requests", num_client_reqs);
         client_reqs = reqmgr->client_reqs;
-        reqmgr->client_reqs = arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
+        reqmgr->client_reqs =
+            arraylist_create(UNIFYFS_CLIENT_MAX_ACTIVE_REQUESTS);
     }
 
     /* release lock on reqmgr requests */
@@ -1238,6 +1287,9 @@ static int rm_process_client_requests(reqmgr_thrd_t* reqmgr)
         client_rpc_req_t* req = (client_rpc_req_t*)
             arraylist_get(client_reqs, i);
         switch (req->req_type) {
+        case UNIFYFS_CLIENT_RPC_ATTACH:
+            rret = process_attach_rpc(reqmgr, req);
+            break;
         case UNIFYFS_CLIENT_RPC_FILESIZE:
             rret = process_filesize_rpc(reqmgr, req);
             break;

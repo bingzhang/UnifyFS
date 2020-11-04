@@ -121,58 +121,65 @@ static void unifyfs_mount_rpc(hg_handle_t handle)
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_mount_rpc)
 
-/* server attaches to client shared memory regions, opens files
+/* server attaches to client's shared memory region, opens file
  * holding spillover data */
 static void unifyfs_attach_rpc(hg_handle_t handle)
 {
-    int ret = (int)UNIFYFS_SUCCESS;
+    int ret = UNIFYFS_SUCCESS;
+    hg_return_t hret;
 
     /* get input params */
-    unifyfs_attach_in_t in;
-    hg_return_t hret = margo_get_input(handle, &in);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_get_input() failed");
-        ret = UNIFYFS_ERROR_MARGO;
+    unifyfs_attach_in_t* in = malloc(sizeof(*in));
+    if (NULL == in) {
+        ret = ENOMEM;
     } else {
-        /* read app_id and client_id from input */
-        int app_id = in.app_id;
-        int client_id = in.client_id;
-
-        /* lookup client structure and attach it */
-        app_client* client = get_app_client(app_id, client_id);
-        if (NULL != client) {
-            LOGDBG("attaching client %d:%d", app_id, client_id);
-            ret = attach_app_client(client,
-                                    in.logio_spill_dir,
-                                    in.logio_spill_size,
-                                    in.logio_mem_size,
-                                    in.shmem_super_size,
-                                    in.meta_offset,
-                                    in.meta_size);
-            if (ret != UNIFYFS_SUCCESS) {
-                LOGERR("attach_app_client() failed");
-            }
+        hret = margo_get_input(handle, in);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_get_input() failed");
+            ret = UNIFYFS_ERROR_MARGO;
         } else {
-            LOGERR("client not found (app_id=%d, client_id=%d)",
-                app_id, client_id);
-            ret = (int)UNIFYFS_FAILURE;
+            client_rpc_req_t* req = malloc(sizeof(client_rpc_req_t));
+            if (NULL == req) {
+                ret = ENOMEM;
+            } else {
+                unifyfs_fops_ctx_t ctx = {
+                    .app_id = in->app_id,
+                    .client_id = in->client_id,
+                };
+                req->req_type = UNIFYFS_CLIENT_RPC_ATTACH;
+                req->handle = handle;
+                req->input = (void*) in;
+                req->bulk_buf = NULL;
+                req->bulk_sz = 0;
+                ret = rm_submit_client_rpc_request(&ctx, req);
+            }
+
+            if (ret != UNIFYFS_SUCCESS) {
+                if (NULL != req) {
+                    free(req);
+                }
+                margo_free_input(handle, in);
+            }
+        }
+    }
+
+    /* if we hit an error during request submission, respond with the error */
+    if (ret != UNIFYFS_SUCCESS) {
+        if (NULL != in) {
+            free(in);
         }
 
-        margo_free_input(handle, &in);
+        /* return to caller */
+        unifyfs_attach_out_t out;
+        out.ret = (int32_t) ret;
+        hret = margo_respond(handle, &out);
+        if (hret != HG_SUCCESS) {
+            LOGERR("margo_respond() failed");
+        }
+
+        /* free margo resources */
+        margo_destroy(handle);
     }
-
-    /* build output structure to return to caller */
-    unifyfs_attach_out_t out;
-    out.ret = ret;
-
-    /* send output back to caller */
-    hret = margo_respond(handle, &out);
-    if (hret != HG_SUCCESS) {
-        LOGERR("margo_respond() failed");
-    }
-
-    /* free margo resources */
-    margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(unifyfs_attach_rpc)
 

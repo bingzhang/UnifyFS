@@ -105,12 +105,12 @@ void unifyfs_log_print(time_t now,
                        char* msg)
 {
     int print_to_buf = 1;
-
+    char line_prefix[256];
     char timestamp[64];
+
     struct tm* log_ltime = localtime(&now);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);
 
-    char line_prefix[256];
     char* file = (char*)srcfile;
     char* func = (char*)function;
     if (NULL != file) {
@@ -130,9 +130,8 @@ void unifyfs_log_print(time_t now,
     size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
     if (full_len >= LOGBUF_SIZE) {
         /* full message length exceeds buffer size, print directly */
-        fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
-        fflush(unifyfs_log_stream);
         print_to_buf = 0;
+        fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
     } else if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
         /* flush log buffer contents to log file stream */
         ABT_mutex_lock(logsync);

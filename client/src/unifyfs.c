@@ -1811,9 +1811,6 @@ int unifyfs_mount(const char prefix[], int rank, size_t size,
     client_rank = rank;
     global_rank_cnt = (int)size;
 
-    /* must do this before using LOG() */
-    ABT_init(0, NULL);
-
     // print log messages to stderr
     unifyfs_log_open(NULL);
 

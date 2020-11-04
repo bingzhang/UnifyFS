@@ -52,17 +52,6 @@ char unifyfs_log_timestamp[256];
 int unifyfs_log_source_base_len; // = 0
 static const char* this_file = __FILE__;
 
-/* logbuf accumulates log messages until full, then
- * we flush it to log stream */
-#ifndef LOGBUF_SIZE
-//# define LOGBUF_SIZE 4096
-# define LOGBUF_SIZE 1 /* this essentially disables the logbuf */
-#endif
-
-static char logbuf[LOGBUF_SIZE];
-static size_t logbuf_offset; // = 0
-ABT_mutex logsync;
-
 /* open specified file as log file stream,
  * or stderr if no file given.
  * returns UNIFYFS_SUCCESS on success */
@@ -79,8 +68,6 @@ int unifyfs_log_open(const char* file)
     if (NULL == unifyfs_log_stream) {
         /* stderr is the default log stream */
         unifyfs_log_stream = stderr;
-
-        ABT_mutex_create(&logsync);
     }
 
     if (NULL != file) {
@@ -104,10 +91,7 @@ void unifyfs_log_print(time_t now,
                        const char* function,
                        char* msg)
 {
-    int print_to_buf = 1;
-    char line_prefix[256] = {0};
     char timestamp[64] = {0};
-
     struct tm* log_ltime = localtime(&now);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);
 
@@ -119,35 +103,9 @@ void unifyfs_log_print(time_t now,
     if (NULL == func) {
         func = (char*) null_func;
     }
-    size_t strings_len = strlen(file);
-    strings_len += strlen(timestamp);
-    strings_len += strlen(func);
-    assert(strings_len < sizeof(line_prefix));
-    size_t prefix_len = snprintf(line_prefix, sizeof(line_prefix),
-                                 "%s tid=%ld @ %s() [%s:%d] ",
-                                 timestamp, (long)unifyfs_gettid(),
-                                 func, file, lineno);
-    size_t full_len = prefix_len + strlen(msg) + 2; /* +2 for '\n\0' */
-    if (full_len >= LOGBUF_SIZE) {
-        /* full message length exceeds buffer size, print directly */
-        print_to_buf = 0;
-        fprintf(unifyfs_log_stream, "%s%s\n", line_prefix, msg);
-    } else if ((full_len + logbuf_offset) >= LOGBUF_SIZE) {
-        /* flush log buffer contents to log file stream */
-        ABT_mutex_lock(logsync);
-        fwrite(logbuf, logbuf_offset, 1, unifyfs_log_stream);
-        logbuf_offset = 0;
-        memset(logbuf, 0, LOGBUF_SIZE);
-        ABT_mutex_unlock(logsync);
-    }
-    if (print_to_buf) {
-        ABT_mutex_lock(logsync);
-        logbuf_offset += sprintf((logbuf + logbuf_offset), "%s%s\n",
-                                 line_prefix, msg);
-        ABT_mutex_unlock(logsync);
-    } else {
-        fflush(unifyfs_log_stream);
-    }
+    fprintf(unifyfs_log_stream, "%s tid=%ld @ %s() [%s:%d] %s\n",
+            timestamp, (long)unifyfs_gettid(), func, file, lineno, msg);
+    fflush(unifyfs_log_stream);
 }
 
 /* close our log file stream.
@@ -162,7 +120,6 @@ int unifyfs_log_close(void)
             /* revert to stderr for any future log messages */
             unifyfs_log_stream = stderr;
         }
-        ABT_mutex_free(&logsync);
     }
 
     return (int)UNIFYFS_SUCCESS;

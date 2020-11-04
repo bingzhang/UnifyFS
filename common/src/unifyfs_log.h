@@ -77,7 +77,7 @@ void unifyfs_set_log_level(unifyfs_log_level_t lvl);
         } \
         const char* srcfile = __FILE__; \
         time_t log_time = time(NULL); \
-        char message[4096]; \
+        char message[4096] = {0}; \
         snprintf(message, sizeof(message), __VA_ARGS__); \
         unifyfs_log_print(log_time, srcfile, __LINE__, __func__, message); \
     }

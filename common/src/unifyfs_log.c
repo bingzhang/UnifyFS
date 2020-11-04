@@ -105,8 +105,8 @@ void unifyfs_log_print(time_t now,
                        char* msg)
 {
     int print_to_buf = 1;
-    char line_prefix[256];
-    char timestamp[64];
+    char line_prefix[256] = {0};
+    char timestamp[64] = {0};
 
     struct tm* log_ltime = localtime(&now);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", log_ltime);

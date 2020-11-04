@@ -465,23 +465,15 @@ int rm_request_exit(reqmgr_thrd_t* thrd_ctrl)
     /* grab the lock */
     RM_LOCK(thrd_ctrl);
 
-    /* if reqmgr thread is not waiting in critical
-     * section, let's wait on it to come back */
-    if (!thrd_ctrl->waiting_for_work) {
-        /* reqmgr thread is not in critical section,
-         * tell it we've got something and signal it */
-        thrd_ctrl->has_waiting_dispatcher = 1;
-        pthread_cond_wait(&thrd_ctrl->thrd_cond, &thrd_ctrl->thrd_lock);
-
-        /* we're no longer waiting */
-        thrd_ctrl->has_waiting_dispatcher = 0;
-    }
-
     /* inform reqmgr thread that it's time to exit */
     thrd_ctrl->exit_flag = 1;
 
-    /* signal reqmgr thread */
-    pthread_cond_signal(&thrd_ctrl->thrd_cond);
+    /* if reqmgr thread is not waiting in critical
+     * section, let's wait on it to come back */
+    if (thrd_ctrl->waiting_for_work) {
+         /* signal reqmgr thread */
+        pthread_cond_signal(&thrd_ctrl->thrd_cond);
+    }
 
     /* release the lock */
     RM_UNLOCK(thrd_ctrl);
